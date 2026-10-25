@@ -148,6 +148,19 @@ builder.Services.AddAuthorization(o =>
 
 builder.Services.AddSivaCommRateLimits(config);
 
+// Cors:AllowedOrigins — where the dashboard is hosted when it is not served
+// by this API itself (Cloudflare Pages: https://sivacom.sivayaantechnologies.com).
+// Credentials are allowed so the admin cookie travels; only the origins listed
+// here may read responses. Application calls are server to server and never
+// need CORS. Empty (the default) allows no cross-origin browser calls at all.
+const string DashboardCors = "Dashboard";
+var dashboardOrigins = config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(o => o.AddPolicy(DashboardCors, p => p
+    .WithOrigins(dashboardOrigins)
+    .AllowCredentials()
+    .WithHeaders("Content-Type", AdminAuth.CsrfHeader)
+    .WithMethods("GET", "POST", "PUT")));
+
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
@@ -231,6 +244,8 @@ if (!app.Environment.IsDevelopment()) app.UseHsts();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+app.UseCors(DashboardCors);
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,0 +1,28 @@
+# Cloudflare Tunnel — publishes the SivaComm API at https://sivacomapi.sivayaantechnologies.com
+#
+# NEW tunnel: copy to C:\Windows\System32\config\systemprofile\.cloudflared\config.yml
+# (where the cloudflared Windows service looks, NOT %USERPROFILE%), fill in the
+# tunnel id, then install the service. DEPLOYMENT_AZURE.md step 7.
+#
+# EXISTING tunnel on this VM (e.g. HMS's hoapi rule): do not replace that file —
+# add the sivacomapi rule below to its ingress list, ABOVE the final
+# http_status:404 rule, and restart the cloudflared service.
+#
+# The credentials JSON this points at is a secret and must not be committed.
+
+tunnel: REPLACE-WITH-TUNNEL-ID
+credentials-file: C:\Windows\System32\config\systemprofile\.cloudflared\REPLACE-WITH-TUNNEL-ID.json
+
+# Cloudflare terminates TLS at its edge and hands the request over the tunnel.
+# The hop from cloudflared to the API is plain HTTP on loopback and never
+# leaves the VM — the API listens only on localhost:6071 (Urls in
+# appsettings.Production.json) and no Azure inbound port is opened for it.
+ingress:
+  - hostname: sivacomapi.sivayaantechnologies.com
+    service: http://localhost:6071
+    originRequest:
+      connectTimeout: 30s
+      httpHostHeader: sivacomapi.sivayaantechnologies.com
+
+  # Required last rule: anything not matched above gets a clean 404.
+  - service: http_status:404

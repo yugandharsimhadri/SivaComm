@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// The dashboard is served by the API itself (same origin), so the admin
-// cookie needs no CORS and no cross-site allowances. In development Vite
-// proxies /api to the API; `npm run build` writes straight into its wwwroot.
+// Production: `npm run build` writes dist/, which is uploaded to Cloudflare
+// Pages (sivacom.sivayaantechnologies.com) and calls the API at VITE_API_URL
+// (.env.production). Development: the dev server proxies /api to the local
+// API, so everything is same-origin and no CORS is involved.
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -11,7 +12,7 @@ export default defineConfig({
     proxy: { '/api': 'http://localhost:5290', '/health': 'http://localhost:5290' },
   },
   build: {
-    outDir: '../backend/src/SivaComm.Api/wwwroot',
+    outDir: 'dist',
     emptyOutDir: true,
   },
 });

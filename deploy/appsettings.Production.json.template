@@ -1,13 +1,18 @@
 {
   "//": [
     "SivaComm production configuration. EVERY setting lives in this one file.",
-    "Copy it to the install folder (default C:\\Services\\SivaComm) as appsettings.Production.json,",
+    "Copy it to the install folder (default C:\\SivaComm\\api) as appsettings.Production.json,",
     "replace every REPLACE-ME, and keep it out of source control - it holds the database password,",
     "the master key, the Meta token and each application's signing secret.",
     "Guide: docs/DEPLOYMENT.md. Every key is explained in docs/GUIDE.md section 9."
   ],
 
-  "Urls": "http://localhost:5290",
+  "Urls": "http://localhost:6071",
+
+  "Cors": {
+    "//": "Where the dashboard is hosted (Cloudflare Pages). Exactly the origin, no trailing slash.",
+    "AllowedOrigins": [ "https://sivacom.sivayaantechnologies.com" ]
+  },
 
   "Database": {
     "//": "The sivacomm role and database (docs/DEPLOYMENT.md step 2). Use SslMode Require if PostgreSQL is on another machine.",
@@ -86,7 +91,7 @@
 
   "DataProtection": {
     "//": "Where the dashboard's login-cookie keys are kept. Without it every restart signs operators out.",
-    "KeysPath": "C:\\Services\\SivaComm\\keys"
+    "KeysPath": "C:\\SivaComm\\keys"
   },
 
   "Logging": {
@@ -97,7 +102,7 @@
     },
     "File": {
       "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
-      "PathFormat": "C:\\Services\\SivaComm\\logs\\sivacomm-{Date}.log",
+      "PathFormat": "C:\\SivaComm\\logs\\sivacomm-{Date}.log",
       "RetainedFileCountLimit": 31
     }
   },

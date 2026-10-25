@@ -1,0 +1,7 @@
+# Cloudflare Pages response headers for the dashboard.
+# The dashboard handles an operator session, so: no framing, no sniffing,
+# no referrer leaking the URL to other sites.
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin

@@ -1,5 +1,13 @@
 # Configuration and deployment, step by step
 
+> **Deploying to the Azure VM with the dashboard on Cloudflare Pages** —
+> `sivacomapi.sivayaantechnologies.com` / `sivacom.sivayaantechnologies.com` —
+> follow **[DEPLOYMENT_AZURE.md](DEPLOYMENT_AZURE.md)**: it works from the two
+> release zips and is the production runbook. This page is the background
+> reference it builds on: the Meta values (§2), secrets (§4), every config
+> key (§5), the Day-2 recipes (§12) and local development (§14). Where the
+> two differ, DEPLOYMENT_AZURE.md is current.
+
 How to take SivaComm and HMS_WEB from a fresh server to live WhatsApp
 password resets. **Every setting lives in a config file** — no dashboard
 clicks are needed to deploy, and redeploying the same files gives the same
@@ -32,10 +40,10 @@ flowchart LR
     subgraph "Server (Windows)"
         direction TB
         PG[(PostgreSQL<br/>sivacomm · sivayaanhms)]
-        SC["SivaCommApi service<br/>C:\Services\SivaComm<br/>appsettings.Production.json"]
+        SC["SivaCommApi service<br/>C:\SivaComm\api<br/>appsettings.Production.json"]
         HM["SivayaanHMSApi service<br/>(HMS_WEB)<br/>appsettings.Production.json"]
         CF[cloudflared tunnel]
-        HM -- "http://localhost:5290<br/>signed" --> SC
+        HM -- "http://localhost:6071<br/>signed" --> SC
         SC --- PG
         HM --- PG
         CF --> SC
@@ -49,7 +57,7 @@ flowchart LR
 
 | Piece | Where | Configured by |
 |---|---|---|
-| SivaComm API + worker + dashboard | Windows service `SivaCommApi`, folder `C:\Services\SivaComm` | `C:\Services\SivaComm\appsettings.Production.json` |
+| SivaComm API + worker + dashboard | Windows service `SivaCommApi`, folder `C:\SivaComm\api` | `C:\SivaComm\api\appsettings.Production.json` |
 | SivaComm database | PostgreSQL database `sivacomm`, role `sivacomm` | — |
 | HMS_WEB API | its existing Windows service | HMS_WEB's `appsettings.Production.json` (`SivaComm` section) |
 | Public HTTPS names | Cloudflare Tunnel (as HMS already uses) | the tunnel's config |
@@ -70,7 +78,7 @@ On the server:
 | PostgreSQL 16+ | the `postgresql-x64-*` service is running |
 | An elevated PowerShell | the deploy script installs a service |
 | The SivaComm repository | e.g. `C:\src\SivaComm` |
-| A public hostname for SivaComm | e.g. `comm.sivayaan.com` (step 7) |
+| A public hostname for SivaComm | e.g. `sivacomapi.sivayaantechnologies.com` (step 7) |
 
 Start step 2 first — Meta's approvals take days; everything else takes an hour.
 
@@ -150,9 +158,9 @@ Pick a key id to go with S4 — any short label, e.g. `hms-2026-10` (**K1**).
 Create the install folder and the config file from the template:
 
 ```powershell
-New-Item -ItemType Directory -Force C:\Services\SivaComm
-Copy-Item C:\src\SivaComm\deploy\appsettings.Production.json.template C:\Services\SivaComm\appsettings.Production.json
-notepad C:\Services\SivaComm\appsettings.Production.json
+New-Item -ItemType Directory -Force C:\SivaComm\api
+Copy-Item C:\src\SivaComm\deploy\appsettings.Production.json.template C:\SivaComm\api\appsettings.Production.json
+notepad C:\SivaComm\api\appsettings.Production.json
 ```
 
 (Running the deploy script with no config file does the copy for you and
@@ -162,7 +170,7 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
 
 ```jsonc
 {
-  "Urls": "http://localhost:5290",                       // where the service listens; the tunnel points here
+  "Urls": "http://localhost:6071",                       // where the service listens; the tunnel points here
 
   "Database": {
     "Host": "localhost", "Port": 5432,
@@ -199,10 +207,10 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
     }
   ],
 
-  "DataProtection": { "KeysPath": "C:\\Services\\SivaComm\\keys" },
+  "DataProtection": { "KeysPath": "C:\\SivaComm\\keys" },
 
   "Logging": {
-    "File": { "PathFormat": "C:\\Services\\SivaComm\\logs\\sivacomm-{Date}.log", "RetainedFileCountLimit": 31 }
+    "File": { "PathFormat": "C:\\SivaComm\\logs\\sivacomm-{Date}.log", "RetainedFileCountLimit": 31 }
   }
 
   // Otp, Worker and RateLimits are in the template with their defaults.
@@ -222,14 +230,18 @@ template names present). The error lists every problem at once.
 Lock the file down to administrators and the service account:
 
 ```powershell
-icacls C:\Services\SivaComm\appsettings.Production.json /inheritance:r /grant:r "Administrators:F" "SYSTEM:R"
+icacls C:\SivaComm\api\appsettings.Production.json /inheritance:r /grant:r "Administrators:F" "SYSTEM:R"
 ```
 
 ---
 
 ## 6. Deploy SivaComm
 
-From the repository, in an elevated PowerShell:
+Usually from a release zip (DEPLOYMENT_AZURE.md §2 and §5–6): build the
+zips on a development machine with `.\deploy\New-Release.ps1`, copy the API
+zip to the server, unzip it and run `.\Install-SivaComm.ps1`. On a server
+that has the source, the SDK and Node, `.\deploy\Deploy-SivaComm.ps1` does
+both in one go:
 
 ```powershell
 cd C:\src\SivaComm
@@ -238,26 +250,27 @@ cd C:\src\SivaComm
 
 ```mermaid
 flowchart LR
-    A[config file present?<br/>no REPLACE-ME left?] --> B[npm ci + build dashboard]
-    B --> C[dotnet publish Release]
-    C --> D[stop service]
-    D --> E[copy build in<br/>keep config, logs, keys]
+    R[New-Release.ps1<br/>publish API · build dashboard] --> A[Install-SivaComm.ps1:<br/>config present? no REPLACE-ME?]
+    A --> D[stop service]
+    D --> E[copy build in<br/>keep config]
     E --> F[SivaComm.Api.exe --migrate]
     F --> G[create/update service<br/>auto start · restart on failure<br/>after PostgreSQL · Production]
     G --> H[start · wait for /health/ready]
 ```
 
-Options: `-InstallDir D:\SivaComm`, `-ServiceName SivaCommApi`,
-`-SkipDashboard` (reuse the last dashboard build).
+Options: `-InstallDir D:\SivaComm\api`, `-ServiceName SivaCommApi`.
 
 Expected ending:
 
 ```
-==> Ready: http://localhost:5290/health/ready
-==> Dashboard: http://localhost:5290/
+==> Ready: http://localhost:6071/health/ready
 ```
 
-Then check the log (`C:\Services\SivaComm\logs\sivacomm-YYYYMMDD.log`) for:
+The API does not serve the dashboard: the dashboard is static files on
+Cloudflare Pages (DEPLOYMENT_AZURE.md §8), calling the API cross-origin, and
+the API's `Cors:AllowedOrigins` must name the dashboard's origin.
+
+Then check the log (`C:\SivaComm\logs\sivacomm-YYYYMMDD.log`) for:
 
 ```
 [INF] Application from configuration — "hms-web: enabled, 1 live key(s), OTP template sivayaan_otp, welcome template hms_welcome"
@@ -278,19 +291,20 @@ add a public hostname for SivaComm pointing at the `Urls` value:
 ```yaml
 # cloudflared config.yml — add above the catch-all rule
 ingress:
-  - hostname: comm.sivayaan.com
-    service: http://localhost:5290
+  - hostname: sivacomapi.sivayaantechnologies.com
+    service: http://localhost:6071
   # … existing HMS rules …
   - service: http_status:404
 ```
 
-Then route the name (`cloudflared tunnel route dns <tunnel> comm.sivayaan.com`)
-and restart cloudflared. Check from outside: `https://comm.sivayaan.com/health/ready`
-→ `ready`, and the dashboard login page loads at `https://comm.sivayaan.com/`.
+Then route the name (`cloudflared tunnel route dns <tunnel> sivacomapi.sivayaantechnologies.com`)
+and restart cloudflared. Check from outside:
+`https://sivacomapi.sivayaantechnologies.com/health/ready` → `ready`. Full
+steps, including a brand-new tunnel: DEPLOYMENT_AZURE.md §7.
 
 HMS_WEB on the same machine does **not** need the public name: it calls
-`http://localhost:5290` directly (step 9). Applications on other machines use
-`https://comm.sivayaan.com`.
+`http://localhost:6071` directly (step 9). Applications on other machines use
+`https://sivacomapi.sivayaantechnologies.com`.
 
 ---
 
@@ -300,7 +314,7 @@ Meta for Developers → your app → WhatsApp → Configuration → Webhook:
 
 | Field | Value |
 |---|---|
-| Callback URL | `https://comm.sivayaan.com/api/v1/webhooks/whatsapp` |
+| Callback URL | `https://sivacomapi.sivayaantechnologies.com/api/v1/webhooks/whatsapp` |
 | Verify token | **S3** (same as `WhatsApp:WebhookVerifyToken`) |
 | Subscribe | `messages` |
 
@@ -316,7 +330,7 @@ In HMS_WEB's `appsettings.Production.json` (beside its exe), add or edit:
 ```json
 "SivaComm": {
   "Enabled": true,
-  "BaseUrl": "http://localhost:5290",
+  "BaseUrl": "http://localhost:6071",
   "ClientId": "hms-web",
   "KeyId": "K1",
   "Secret": "S4",
@@ -373,7 +387,7 @@ the order doesn't matter.
 
 | # | Do | Expect |
 |---|---|---|
-| 1 | `https://comm.sivayaan.com/health/ready` | `ready` |
+| 1 | `https://sivacomapi.sivayaantechnologies.com/health/ready` | `ready` |
 | 2 | Sign in to the dashboard as `ops` / S2 | Overview loads; Applications lists *Sivayaan HMS* with key K1 and both templates |
 | 3 | In HMS, register a test clinic with **your** mobile | WhatsApp welcome arrives; dashboard *Messages* shows a **Welcome** row going *Submitted → Delivered* |
 | 4 | HMS sign-in → *Forgot password?* → your test username | code arrives on WhatsApp; dashboard shows an **OTP** row |

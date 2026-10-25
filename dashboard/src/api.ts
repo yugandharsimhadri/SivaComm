@@ -7,6 +7,13 @@
  * admin calls without it, and a browser will not add a custom header to a
  * cross-site request, so another site cannot drive an operator's session.
  */
+/**
+ * Where the API lives. Baked in at build time from VITE_API_URL
+ * (dashboard/.env.production for the Cloudflare Pages build). Empty means
+ * "same origin" — the dev server's proxy, or the API serving this bundle.
+ */
+const API_URL = ((import.meta.env.VITE_API_URL as string | undefined) ?? '').replace(/\/+$/, '');
+
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);
@@ -14,9 +21,12 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
+  // 'include' so the admin cookie (set by the API's own host) is sent when
+  // the dashboard is on a different subdomain. The API only lets the origins
+  // in its Cors:AllowedOrigins read the answer.
+  const response = await fetch(`${API_URL}${path}`, {
     ...init,
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: {
       'X-SivaComm-Admin': '1',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),

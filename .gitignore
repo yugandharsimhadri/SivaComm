@@ -13,3 +13,6 @@ backend/src/SivaComm.Api/wwwroot/
 dashboard/dist/
 *.tsbuildinfo
 publish/
+
+# Release zips (deploy/New-Release.ps1).
+artifacts/

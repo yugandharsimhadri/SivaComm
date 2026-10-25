@@ -6,7 +6,7 @@ sends. Configuration lives in **two config files** plus Meta:
 | Where | What | Who sets it |
 |---|---|---|
 | **Meta** (WhatsApp Manager) | the sending number, the access token, one approved template per message | once, by whoever owns the Meta Business account |
-| **SivaComm config file** (`C:\Services\SivaComm\appsettings.Production.json`) | database, master key, Meta credentials, OTP rules, **and each application with its key and templates** | once per SivaComm install; edited for any change |
+| **SivaComm config file** (`C:\SivaComm\api\appsettings.Production.json`) | database, master key, Meta credentials, OTP rules, **and each application with its key and templates** | once per SivaComm install; edited for any change |
 | **The application's config file** (e.g. HMS_WEB `appsettings.Production.json`) | the switch, SivaComm's address, the same key | once per application install |
 
 Step-by-step deployment with commands: [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -75,7 +75,7 @@ exactly — `en` and `en_US` are different templates to Meta.
 ## 2 · SivaComm server config
 
 `appsettings.Production.json` beside `SivaComm.Api.exe` in the install
-folder (default `C:\Services\SivaComm`), never committed. Start from
+folder (default `C:\SivaComm\api`), never committed. Start from
 `deploy/appsettings.Production.json.template`, which lists every key with
 notes. The essentials:
 
@@ -156,7 +156,7 @@ policy. Reasons for each default are in [SECURITY.md](SECURITY.md).
 ### Meta webhook (delivery receipts)
 
 WhatsApp → Configuration → Webhook: callback URL
-`https://<sivacomm host>/api/v1/webhooks/whatsapp`, verify token as above,
+`https://sivacomapi.sivayaantechnologies.com/api/v1/webhooks/whatsapp`, verify token as above,
 subscribe to **messages**. Without it messages still send; the dashboard just
 stops at *Submitted* instead of showing *Delivered* / *Read*.
 
@@ -215,7 +215,7 @@ In HMS_WEB's `appsettings.Production.json`:
 ```json
 "SivaComm": {
   "Enabled": true,
-  "BaseUrl": "https://<sivacomm host>",
+  "BaseUrl": "https://sivacomapi.sivayaantechnologies.com",
   "ClientId": "hms-web",
   "KeyId": "<key id from step 3>",
   "Secret": "<secret from step 3>",
@@ -241,7 +241,7 @@ whatever `SivaComm:Enabled` says.
 
 ## 5 · Checking it works
 
-1. SivaComm: `https://<sivacomm host>/health/ready` answers `ready`.
+1. SivaComm: `https://sivacomapi.sivayaantechnologies.com/health/ready` answers `ready`.
 2. Register a test clinic in HMS with your own number → a **Welcome** row
    appears in the dashboard's *Messages*.
 3. Press *Forgot password* → a **OTP** row appears. Its *Delivery* column
