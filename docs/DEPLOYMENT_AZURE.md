@@ -27,8 +27,8 @@ config file; nothing is typed into the application.
 - [1. Before you start](#1-before-you-start)
 - [2. Build the two zips](#2-build-the-two-zips-development-machine)
 - [3. Prepare the VM](#3-prepare-the-vm-once)
-- [4. Database](#4-database-once)
-- [5. Copy the API zip and fill in the config](#5-copy-the-api-zip-and-fill-in-the-config)
+- [4. Copy the API zip and create the database](#4-copy-the-api-zip-and-create-the-database-once)
+- [5. Fill in the config](#5-fill-in-the-config)
 - [6. Install the API](#6-install-the-api)
 - [7. Publish the API through the tunnel](#7-publish-the-api-through-the-tunnel)
 - [8. Dashboard on Cloudflare Pages](#8-dashboard-on-cloudflare-pages)
@@ -73,7 +73,7 @@ It ends with:
 
 | Zip | Goes to | Contains |
 |---|---|---|
-| `SivaComm-api-….zip` | the Azure VM | `api\` (the program), `Install-SivaComm.ps1`, `appsettings.Production.json.template`, `cloudflared\config.yml.template`, this guide, `VERSION.txt` |
+| `SivaComm-api-….zip` | the Azure VM | `api\` (the program), `Install-SivaComm.ps1`, `sql\` (database scripts), `appsettings.Production.json.template`, `cloudflared\config.yml.template`, this guide, `VERSION.txt` |
 | `SivaComm-dashboard-….zip` | Cloudflare Pages | `index.html`, `assets\`, `_headers` |
 
 The dashboard's API address is baked in at build time from
@@ -127,36 +127,79 @@ New-Item -ItemType Directory -Force C:\SivaComm\api, C:\SivaComm\logs, C:\SivaCo
 
 ---
 
-## 4. Database (once)
-
-Choose a strong password for the application role — call it **D1**.
-
-```powershell
-$psql = "C:\Program Files\PostgreSQL\18\bin\psql.exe"   # adjust 18 to the installed version
-& $psql -U postgres -c "CREATE ROLE sivacomm LOGIN PASSWORD 'D1';"
-& $psql -U postgres -c "CREATE DATABASE sivacomm OWNER sivacomm ENCODING 'UTF8' TEMPLATE template0;"
-```
-
-(`-U postgres` asks for the PostgreSQL superuser password chosen when
-PostgreSQL was installed.) The tables are created by the installer's
-migration step. The role does **not** get `CREATEDB`.
-
-Using **Azure Database for PostgreSQL** instead of PostgreSQL on the VM?
-Create the same role and database there, and in step 5 set `Database:Host`
-to its server name and `Database:SslMode` to `Require`.
-
----
-
-## 5. Copy the API zip and fill in the config
+## 4. Copy the API zip and create the database (once)
 
 **Copy** `SivaComm-api-….zip` to the VM (RDP clipboard / drive redirection,
-or a storage blob), then:
+or a storage blob) and unzip it:
 
 ```powershell
 $rel = "C:\SivaComm\release-$(Get-Date -Format yyyyMMdd)"
 Expand-Archive C:\Users\<you>\Downloads\SivaComm-api-*.zip -DestinationPath $rel -Force
 cd $rel
 Get-Content .\VERSION.txt
+```
+
+The zip's `sql\` folder holds three scripts, generated from this release's
+own migrations:
+
+| Script | Does | Run as |
+|---|---|---|
+| `sql\01-create-database.sql` | role `sivacomm` (with its password), database `sivacomm` owned by it, schema `comm`, privileges; stops other roles connecting | `postgres` |
+| `sql\full-schema.sql` | all of `01-create-database.sql`, then every table, index and constraint — a ready database in one run | `postgres` |
+| `sql\migrate.sql` | tables only, for an existing database; idempotent | `sivacomm` |
+
+All three are safe to run again. They agree with the installer's own
+migration step: whatever one of them has applied, the others skip.
+
+Choose a strong password for the application role — call it **D1** — then
+pick **one** of the two ways below. (`-U postgres` asks for the PostgreSQL
+superuser password chosen when PostgreSQL was installed. Adjust `18` to the
+installed version.)
+
+```powershell
+$psql = "C:\Program Files\PostgreSQL\18\bin\psql.exe"
+```
+
+**A — database only; the installer creates the tables (recommended):**
+
+```powershell
+& $psql -U postgres -v app_password='D1' -f .\sql\01-create-database.sql
+```
+
+The database is empty afterwards; step 6's installer creates the tables
+(`SivaComm.Api.exe --migrate`).
+
+**B — database and tables now, for a DBA who wants to see the SQL run:**
+
+```powershell
+& $psql -U postgres -v app_password='D1' -f .\sql\full-schema.sql
+```
+
+It ends by listing the applied migration and the table count (10 tables in
+schema `comm`, owned by `sivacomm`). The installer later finds them in place
+and only reports *"Already current."*
+
+Either way, without `-v app_password=…` the script stops with
+*"app_password is required"* and changes nothing. The role never gets
+`CREATEDB`. Optional variables: `-v app_user=…` and `-v db_name=…` (defaults
+`sivacomm`/`sivacomm`).
+
+**Azure Database for PostgreSQL** instead of PostgreSQL on the VM? Run the
+same script against it as its admin user (`-h <server>.postgres.database.azure.com
+-U <admin> -d postgres`), and in step 5 set `Database:Host` to that server
+name and `Database:SslMode` to `Require`.
+
+**Later releases** that add migrations need nothing here: the installer
+applies them. A DBA who prefers to apply them by hand runs the new release's
+`sql\migrate.sql` as `sivacomm` before the installer.
+
+---
+
+## 5. Fill in the config
+
+In the same folder:
+
+```powershell
 .\Install-SivaComm.ps1
 ```
 
@@ -231,11 +274,17 @@ Same folder, same window:
 ==> Stopping SivaCommApi                      (not on the first install)
 ==> Copying the build to C:\SivaComm\api (keeping appsettings.Production.json)
 ==> Applying database migrations
-Applying 1: 20261024155431_Initial
+Applying 1: 20261024155431_Initial            ("Already current." if step 4 used full-schema.sql)
 ==> Creating service SivaCommApi
 ==> Starting SivaCommApi
 ==> Ready: http://localhost:6071/health/ready
 ```
+
+On a brand-new database the migration step also prints two red
+`fail: … SELECT migration_id, product_version FROM "__EFMigrationsHistory"`
+blocks. That is the migrator checking for its history table before creating
+it — expected on the first install, and harmless; the line that matters is
+`Applying 1: …` followed by `==> Ready`.
 
 What it refuses, with the reason: a missing ASP.NET Core 10 runtime, invalid
 JSON, any `REPLACE-ME` left, a database it cannot reach, and — from the

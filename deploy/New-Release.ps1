@@ -12,6 +12,9 @@
         Install-SivaComm.ps1
         appsettings.Production.json.template
         cloudflared\config.yml.template
+        sql\01-create-database.sql             role, database, schema, privileges
+        sql\full-schema.sql                    the above + every table, one psql run
+        sql\migrate.sql                        tables only, idempotent
         DEPLOYMENT_AZURE.md
         VERSION.txt
 
@@ -73,6 +76,14 @@ Copy-Item (Join-Path $PSScriptRoot 'appsettings.Production.json.template') $ApiO
 New-Item -ItemType Directory -Force (Join-Path $ApiOut 'cloudflared') | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'cloudflared\config.yml.template') (Join-Path $ApiOut 'cloudflared')
 Copy-Item (Join-Path $Repo 'docs\DEPLOYMENT_AZURE.md') $ApiOut
+
+# Database scripts, generated from this build's own migrations so the zip can
+# never carry SQL that disagrees with its program.
+Say 'Generating the database scripts'
+$SqlOut = Join-Path $ApiOut 'sql'
+New-Item -ItemType Directory -Force $SqlOut | Out-Null
+Copy-Item (Join-Path $PSScriptRoot 'sql\01-create-database.sql') $SqlOut
+& (Join-Path $PSScriptRoot 'New-SchemaScripts.ps1') -OutDir $SqlOut | Out-Host
 "SivaComm API`ncommit $commit`nbuilt $(Get-Date -Format 'yyyy-MM-dd HH:mm')" | Set-Content (Join-Path $ApiOut 'VERSION.txt') -Encoding ascii
 
 # ---------------------------------------------------------------- dashboard
