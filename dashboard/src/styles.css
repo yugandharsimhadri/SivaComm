@@ -1,0 +1,100 @@
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #1c2330;
+  --muted: #6a7385;
+  --line: #e2e5eb;
+  --accent: #1f6feb;
+  --good: #1a7f37;
+  --warn: #9a6700;
+  --bad: #cf222e;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1218;
+    --card: #171b23;
+    --text: #e6e9ef;
+    --muted: #949bab;
+    --line: #2a303b;
+    --accent: #4c8dff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+h1, h2, h3 { margin: 0 0 0.6rem; }
+h2 { font-size: 1.05rem; }
+h3 { font-size: 0.9rem; margin-top: 1rem; color: var(--muted); }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
+.muted { color: var(--muted); font-weight: normal; font-size: 0.9em; }
+.error { color: var(--bad); }
+
+button {
+  font: inherit; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+}
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.ghost { border-color: transparent; background: transparent; }
+button.danger { color: var(--bad); }
+
+input, select {
+  font: inherit; padding: 0.35rem 0.5rem; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--text);
+}
+label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--muted); }
+
+.shell header {
+  display: flex; align-items: center; gap: 1.5rem; padding: 0.7rem 1rem;
+  background: var(--card); border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.shell nav { display: flex; gap: 0.25rem; }
+.shell nav button { border: none; background: none; }
+.shell nav button.active { background: var(--bg); font-weight: 600; }
+.who { margin-left: auto; color: var(--muted); }
+main { padding: 1rem; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+.card.secret { border-color: var(--warn); }
+.select { user-select: all; word-break: break-all; }
+
+.filters { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem; display: flex; flex-direction: column; }
+.tile .label { color: var(--muted); font-size: 0.8rem; }
+.tile .value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .hint { color: var(--muted); font-size: 0.75rem; }
+.tile.warn .value { color: var(--warn); }
+.tile.bad .value { color: var(--bad); }
+
+.health { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0; }
+.health dt { color: var(--muted); }
+.health dd { margin: 0; }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; }
+
+.badge { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.78rem; background: var(--bg); border: 1px solid var(--line); }
+.badge.delivered, .badge.read { color: var(--good); border-color: var(--good); }
+.badge.failed { color: var(--bad); border-color: var(--bad); }
+.badge.queued, .badge.expired { color: var(--warn); border-color: var(--warn); }
+
+.pager { display: flex; gap: 1rem; align-items: center; justify-content: flex-end; margin-top: 0.75rem; color: var(--muted); }
+.row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.row h2 { margin: 0; }
+.inline { display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap; margin: 0.5rem 0; }
+.purpose { min-width: 150px; align-self: center; }
+
+.login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.login form { width: min(360px, 100%); display: flex; flex-direction: column; gap: 0.8rem; }

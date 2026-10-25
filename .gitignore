@@ -1,0 +1,15 @@
+bin/
+obj/
+node_modules/
+.vs/
+*.user
+
+# Secrets: database passwords, master key, provider tokens.
+appsettings.Local.json
+appsettings.Production.json
+
+# Built dashboard (produced by `npm run build` in dashboard/).
+backend/src/SivaComm.Api/wwwroot/
+dashboard/dist/
+*.tsbuildinfo
+publish/

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SivaComm.Api/SivaComm.Api.csproj" />
+    <Project Path="src/SivaComm.Data/SivaComm.Data.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SivaComm.Tests/SivaComm.Tests.csproj" />
+  </Folder>
+</Solution>
