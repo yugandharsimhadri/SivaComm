@@ -90,9 +90,10 @@ loses a message — it is retried.
 
 ## 3 · Password reset — the full flow
 
-### 3.1 What the user sees (HMS_WEB)
+### 3.1 What the user sees (HMS_WEB, `SivaComm:Enabled = true`)
 
-Three steps on one page (`/forgot-password`):
+Three steps on one page (`/forgot-password`). With the flag off — the
+default — HMS_WEB shows its original page instead; see §3.3.
 
 1. **Reset your password** — enter username (`you@your-clinic`) → *Send code*.
    Always the same message: *"If that account exists and has a phone number on
@@ -150,19 +151,17 @@ sequenceDiagram
 
 ### 3.3 With SivaComm disabled (the normal flow)
 
-The same three screens and the same HMS endpoints. The difference is only
-who handles the code:
+**The flag is off by default, and off is HMS_WEB exactly as it was before
+SivaComm** — the original page, endpoints and code, untouched:
 
-| Step | `SivaComm:Enabled = false` |
+| Step | `SivaComm:Enabled = false` (default) |
 |---|---|
-| Send code | HMS_WEB generates the code into its own `PasswordResetCodes` table (hashed) and sends it through its own WhatsApp sender, or writes it to the log if WhatsApp is not configured |
-| Verify | HMS_WEB checks it against its table (5 attempts, 10 minutes) |
-| Set password | no grant to consume; the HMS reset transaction being `Verified` is the proof |
+| Ask for a code | `POST /api/auth/forgot-password {username}` → `{ message }`. HMS_WEB stores the code (hashed) in its own `PasswordResetCodes` table and sends it through its own WhatsApp sender, or writes it to the log if WhatsApp is not configured |
+| Code + new password, one screen | `POST /api/auth/reset-password {username, code, newPassword}` — checked and saved in one call (5 attempts, 10 minutes) |
 | Welcome | sent by HMS_WEB itself |
+| SivaComm | never called; `verify-reset-code` / `resend-reset-code` answer 404; no `PasswordResetTransactions` rows |
 
-This is exactly the behaviour HMS_WEB had before SivaComm existed, moved
-behind an interface (`IOtpGateway` → `LocalOtpGateway`) so the three-step
-screen works the same either way.
+The three-step screen in §3.1–3.2 appears only when the flag is on.
 
 ### 3.4 Identifiers that travel
 

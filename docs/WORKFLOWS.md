@@ -306,8 +306,9 @@ POST /api/v1/otp/challenges/0192f1c4-…/completion
 
 ## 3. Password reset, normal flow
 
-`SivaComm:Enabled = false` (the default). The browser sees exactly the same
-three requests and responses; HMS_WEB answers them alone.
+`SivaComm:Enabled = false` (the default). HMS_WEB exactly as it was before
+SivaComm: the original page (code and new password on one screen), the
+original two requests, and SivaComm is never called.
 
 ```mermaid
 sequenceDiagram
@@ -318,15 +319,21 @@ sequenceDiagram
     participant WA as Meta (HMS_WEB's own WhatsApp section)
 
     U->>H: POST /api/auth/forgot-password {username}
-    H->>HD: transaction (CodeSent); PasswordResetCodes row (code hashed)
+    H->>HD: PasswordResetCodes row (code hashed)
     H->>WA: hms_password_reset template (or the log, if WhatsApp is empty)
-    H-->>U: 200 generic message + resetToken
-    U->>H: POST /api/auth/verify-reset-code {resetToken, code}
-    H->>HD: check code (5 tries, 10 min), transaction → Verified
-    H-->>U: 200 VERIFIED
-    U->>H: POST /api/auth/reset-password {resetToken, newPassword}
-    H->>HD: one save: password, transaction → PasswordChanged
-    H-->>U: 200 PASSWORD_CHANGED
+    H-->>U: 200 { message }
+    U->>H: POST /api/auth/reset-password {username, code, newPassword}
+    H->>HD: check code (5 tries, 10 min) and save password, one call
+    H-->>U: 204
+```
+
+```json
+POST /api/auth/forgot-password   { "username": "drsri@sunrise" }
+→ 200 { "message": "If that account exists and has a phone number on file, a code is on its way. It is valid for 10 minutes." }
+
+POST /api/auth/reset-password    { "username": "drsri@sunrise", "code": "482913", "newPassword": "Sunrise@2026!" }
+→ 204 No Content
+→ 400 "That code is not right, or it has expired. Ask for a new one."
 ```
 
 ---
