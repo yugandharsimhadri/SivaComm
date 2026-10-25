@@ -1,7 +1,7 @@
 {
   "//": [
     "SivaComm production configuration. EVERY setting lives in this one file.",
-    "Copy it to the install folder (default C:\\SivaComm\\api) as appsettings.Production.json,",
+    "Copy it to the install folder (default C:\\Server\\sivacomapi) as appsettings.Production.json,",
     "replace every REPLACE-ME, and keep it out of source control - it holds the database password,",
     "the master key, the Meta token and each application's signing secret.",
     "Guide: docs/DEPLOYMENT.md. Every key is explained in docs/GUIDE.md section 9."
@@ -91,7 +91,7 @@
 
   "DataProtection": {
     "//": "Where the dashboard's login-cookie keys are kept. Without it every restart signs operators out.",
-    "KeysPath": "C:\\SivaComm\\keys"
+    "KeysPath": "C:\\Server\\sivacomapi\\keys"
   },
 
   "Logging": {
@@ -102,7 +102,7 @@
     },
     "File": {
       "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
-      "PathFormat": "C:\\SivaComm\\logs\\sivacomm-{Date}.log",
+      "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log",
       "RetainedFileCountLimit": 31
     }
   },

@@ -40,7 +40,7 @@ flowchart LR
     subgraph "Server (Windows)"
         direction TB
         PG[(PostgreSQL<br/>sivacomm · sivayaanhms)]
-        SC["SivaCommApi service<br/>C:\SivaComm\api<br/>appsettings.Production.json"]
+        SC["SivaComApi service<br/>C:\Server\sivacomapi<br/>appsettings.Production.json"]
         HM["SivayaanHMSApi service<br/>(HMS_WEB)<br/>appsettings.Production.json"]
         CF[cloudflared tunnel]
         HM -- "http://localhost:6071<br/>signed" --> SC
@@ -57,7 +57,7 @@ flowchart LR
 
 | Piece | Where | Configured by |
 |---|---|---|
-| SivaComm API + worker + dashboard | Windows service `SivaCommApi`, folder `C:\SivaComm\api` | `C:\SivaComm\api\appsettings.Production.json` |
+| SivaComm API + worker + dashboard | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` | `C:\Server\sivacomapi\appsettings.Production.json` |
 | SivaComm database | PostgreSQL database `sivacomm`, role `sivacomm` | — |
 | HMS_WEB API | its existing Windows service | HMS_WEB's `appsettings.Production.json` (`SivaComm` section) |
 | Public HTTPS names | Cloudflare Tunnel (as HMS already uses) | the tunnel's config |
@@ -158,9 +158,9 @@ Pick a key id to go with S4 — any short label, e.g. `hms-2026-10` (**K1**).
 Create the install folder and the config file from the template:
 
 ```powershell
-New-Item -ItemType Directory -Force C:\SivaComm\api
-Copy-Item C:\src\SivaComm\deploy\appsettings.Production.json.template C:\SivaComm\api\appsettings.Production.json
-notepad C:\SivaComm\api\appsettings.Production.json
+New-Item -ItemType Directory -Force C:\Server\sivacomapi
+Copy-Item C:\src\SivaComm\deploy\appsettings.Production.json.template C:\Server\sivacomapi\appsettings.Production.json
+notepad C:\Server\sivacomapi\appsettings.Production.json
 ```
 
 (Running the deploy script with no config file does the copy for you and
@@ -207,10 +207,10 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
     }
   ],
 
-  "DataProtection": { "KeysPath": "C:\\SivaComm\\keys" },
+  "DataProtection": { "KeysPath": "C:\\Server\\sivacomapi\\keys" },
 
   "Logging": {
-    "File": { "PathFormat": "C:\\SivaComm\\logs\\sivacomm-{Date}.log", "RetainedFileCountLimit": 31 }
+    "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log", "RetainedFileCountLimit": 31 }
   }
 
   // Otp, Worker and RateLimits are in the template with their defaults.
@@ -230,7 +230,7 @@ template names present). The error lists every problem at once.
 Lock the file down to administrators and the service account:
 
 ```powershell
-icacls C:\SivaComm\api\appsettings.Production.json /inheritance:r /grant:r "Administrators:F" "SYSTEM:R"
+icacls C:\Server\sivacomapi\appsettings.Production.json /inheritance:r /grant:r "Administrators:F" "SYSTEM:R"
 ```
 
 ---
@@ -258,7 +258,7 @@ flowchart LR
     G --> H[start · wait for /health/ready]
 ```
 
-Options: `-InstallDir D:\SivaComm\api`, `-ServiceName SivaCommApi`.
+Options: `-InstallDir D:\Server\sivacomapi`, `-ServiceName SivaComApi`.
 
 Expected ending:
 
@@ -270,7 +270,7 @@ The API does not serve the dashboard: the dashboard is static files on
 Cloudflare Pages (DEPLOYMENT_AZURE.md §8), calling the API cross-origin, and
 the API's `Cors:AllowedOrigins` must name the dashboard's origin.
 
-Then check the log (`C:\SivaComm\logs\sivacomm-YYYYMMDD.log`) for:
+Then check the log (`C:\Server\sivacomapi\logs\sivacomm-YYYYMMDD.log`) for:
 
 ```
 [INF] Application from configuration — "hms-web: enabled, 1 live key(s), OTP template sivayaan_otp, welcome template hms_welcome"
@@ -403,7 +403,7 @@ for the common ones.
 
 ## 12. Day-2 changes — all by editing a file
 
-Every change below is: edit the file → restart the service (`Restart-Service SivaCommApi`, or HMS's service). Nothing else.
+Every change below is: edit the file → restart the service (`Restart-Service SivaComApi`, or HMS's service). Nothing else.
 
 **Rotate HMS's signing key (no downtime)**
 

@@ -19,7 +19,7 @@ credentials-file: C:\Windows\System32\config\systemprofile\.cloudflared\REPLACE-
 # appsettings.Production.json) and no Azure inbound port is opened for it.
 ingress:
   - hostname: sivacomapi.sivayaantechnologies.com
-    service: http://localhost:6071
+    service: http://127.0.0.1:6071
     originRequest:
       connectTimeout: 30s
       httpHostHeader: sivacomapi.sivayaantechnologies.com

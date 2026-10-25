@@ -6,7 +6,7 @@ sends. Configuration lives in **two config files** plus Meta:
 | Where | What | Who sets it |
 |---|---|---|
 | **Meta** (WhatsApp Manager) | the sending number, the access token, one approved template per message | once, by whoever owns the Meta Business account |
-| **SivaComm config file** (`C:\SivaComm\api\appsettings.Production.json`) | database, master key, Meta credentials, OTP rules, **and each application with its key and templates** | once per SivaComm install; edited for any change |
+| **SivaComm config file** (`C:\Server\sivacomapi\appsettings.Production.json`) | database, master key, Meta credentials, OTP rules, **and each application with its key and templates** | once per SivaComm install; edited for any change |
 | **The application's config file** (e.g. HMS_WEB `appsettings.Production.json`) | the switch, SivaComm's address, the same key | once per application install |
 
 Step-by-step deployment with commands: [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -75,7 +75,7 @@ exactly — `en` and `en_US` are different templates to Meta.
 ## 2 · SivaComm server config
 
 `appsettings.Production.json` beside `SivaComm.Api.exe` in the install
-folder (default `C:\SivaComm\api`), never committed. Start from
+folder (default `C:\Server\sivacomapi`), never committed. Start from
 `deploy/appsettings.Production.json.template`, which lists every key with
 notes. The essentials:
 

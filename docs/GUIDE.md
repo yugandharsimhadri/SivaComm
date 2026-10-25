@@ -500,7 +500,7 @@ application in the file, the file wins at the next restart.
 | `Urls` | `http://localhost:6071` | where the service listens |
 | `Cors:AllowedOrigins` | `[]` | the dashboard's origin when it is not served by the API — production: `["https://sivacom.sivayaantechnologies.com"]` |
 | `DataProtection:KeysPath` | — | folder for the dashboard's login-cookie keys; set it, or every restart signs operators out |
-| `Logging:File:PathFormat` | — | daily log file, e.g. `C:\SivaComm\logs\sivacomm-{Date}.log`; a service has no console |
+| `Logging:File:PathFormat` | — | daily log file, e.g. `C:\Server\sivacomapi\logs\sivacomm-{Date}.log`; a service has no console |
 | `Logging:File:RetainedFileCountLimit` | `31` | days of log files kept |
 
 ### 9.8 Full example
@@ -531,8 +531,8 @@ In short:
       }
     }
   ],
-  "DataProtection": { "KeysPath": "C:\\SivaComm\\keys" },
-  "Logging": { "File": { "PathFormat": "C:\\SivaComm\\logs\\sivacomm-{Date}.log" } }
+  "DataProtection": { "KeysPath": "C:\\Server\\sivacomapi\\keys" },
+  "Logging": { "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log" } }
 }
 ```
 

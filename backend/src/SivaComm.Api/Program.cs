@@ -34,9 +34,9 @@ if (!builder.Configuration.GetValue<bool>("IgnoreLocalSettings"))
 
 // Installed with sc.exe (deploy\Deploy-SivaComm.ps1): report start/stop to
 // the service manager. A no-op when run from a console.
-builder.Host.UseWindowsService(o => o.ServiceName = "SivaCommApi");
+builder.Host.UseWindowsService(o => o.ServiceName = "SivaComApi");
 
-// Logging:File:PathFormat in the config file, e.g. "C:\\SivaComm\\logs\\sivacomm-{Date}.log".
+// Logging:File:PathFormat in the config file, e.g. "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log".
 // A service has no console, so without this its logs go nowhere useful.
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Logging:File:PathFormat"]))
     builder.Logging.AddFile(builder.Configuration.GetSection("Logging:File"));

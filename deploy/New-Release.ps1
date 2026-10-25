@@ -68,6 +68,9 @@ if ($LASTEXITCODE -ne 0) { Die 'dotnet publish failed.' }
 
 # The dashboard is on Cloudflare Pages; the API does not serve it.
 Remove-Item (Join-Path $ApiOut 'api\wwwroot') -Recurse -Force -ErrorAction SilentlyContinue
+# No web.config: SivaComm runs as a Windows service, never under IIS, and a
+# web.config in the folder is an invitation for IIS to claim it (and port 6071).
+Remove-Item (Join-Path $ApiOut 'api\web.config') -Force -ErrorAction SilentlyContinue
 # Development-only files have no business on a server.
 Remove-Item (Join-Path $ApiOut 'api\appsettings.Development.json'), (Join-Path $ApiOut 'api\appsettings.Local.json') -Force -ErrorAction SilentlyContinue
 

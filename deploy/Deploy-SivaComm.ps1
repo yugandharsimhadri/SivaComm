@@ -18,8 +18,8 @@
 
 [CmdletBinding()]
 param(
-    [string] $InstallDir = 'C:\SivaComm\api',
-    [string] $ServiceName = 'SivaCommApi'
+    [string] $InstallDir = 'C:\Server\sivacomapi',
+    [string] $ServiceName = 'SivaComApi'
 )
 
 $ErrorActionPreference = 'Stop'

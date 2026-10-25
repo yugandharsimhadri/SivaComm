@@ -7,7 +7,7 @@ config file; nothing is typed into the application.
 |---|---|---|
 | **Dashboard** | `https://sivacom.sivayaantechnologies.com` | Cloudflare Pages (static files) |
 | **API, public** | `https://sivacomapi.sivayaantechnologies.com` | Cloudflare Tunnel → the VM |
-| **API, on the VM** | `http://localhost:6071` | Windows service `SivaCommApi`, folder `C:\SivaComm\api` |
+| **API, on the VM** | `http://localhost:6071` | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` |
 | **Database** | `localhost:5432`, database `sivacomm`, role `sivacomm` | PostgreSQL on the VM |
 
 ```
@@ -18,7 +18,7 @@ config file; nothing is typed into the application.
  Meta webhook ──https──> sivacomapi.sivayaantechnologies.com  (Cloudflare edge, TLS)
                                                   │  tunnel — outbound from the VM, no open ports
                                                   v
- Azure VM:   cloudflared ──> http://localhost:6071  SivaCommApi service ──> PostgreSQL localhost:5432
+ Azure VM:   cloudflared ──> http://localhost:6071  SivaComApi service ──> PostgreSQL localhost:5432
                                    ^
  HMS_WEB API ──signed calls────────┘   (http://localhost:6071 if HMS is on this VM,
                                         https://sivacomapi.… if it is elsewhere)
@@ -114,16 +114,16 @@ winget install --id Cloudflare.cloudflared
 **Folders:**
 
 ```powershell
-New-Item -ItemType Directory -Force C:\SivaComm\api, C:\SivaComm\logs, C:\SivaComm\keys, C:\SivaComm\backups | Out-Null
+New-Item -ItemType Directory -Force C:\Server\sivacomapi, C:\Server\sivacomapi\logs, C:\Server\sivacomapi\keys, C:\Server\sivacomapi-backups | Out-Null
 ```
 
 | Folder | Holds | Replaced on upgrade? |
 |---|---|---|
-| `C:\SivaComm\api` | the program + `appsettings.Production.json` | program yes, config **never** |
-| `C:\SivaComm\release-<date>` | each unzipped release | a new one per release |
-| `C:\SivaComm\logs` | daily log files | no |
-| `C:\SivaComm\keys` | dashboard login-cookie keys | no |
-| `C:\SivaComm\backups` | database dumps | no |
+| `C:\Server\sivacomapi` | the program + `appsettings.Production.json` | program yes, config **never** |
+| `C:\Deployments\sivacom\release-<date>` | each unzipped release | a new one per release |
+| `C:\Server\sivacomapi\logs` | daily log files | no |
+| `C:\Server\sivacomapi\keys` | dashboard login-cookie keys | no |
+| `C:\Server\sivacomapi-backups` | database dumps | no |
 
 ---
 
@@ -133,7 +133,7 @@ New-Item -ItemType Directory -Force C:\SivaComm\api, C:\SivaComm\logs, C:\SivaCo
 or a storage blob) and unzip it:
 
 ```powershell
-$rel = "C:\SivaComm\release-$(Get-Date -Format yyyyMMdd)"
+$rel = "C:\Deployments\sivacom\release-$(Get-Date -Format yyyyMMdd)"
 Expand-Archive C:\Users\<you>\Downloads\SivaComm-api-*.zip -DestinationPath $rel -Force
 cd $rel
 Get-Content .\VERSION.txt
@@ -204,11 +204,11 @@ In the same folder:
 ```
 
 On the first run the installer copies the template to
-`C:\SivaComm\api\appsettings.Production.json` and stops:
+`C:\Server\sivacomapi\appsettings.Production.json` and stops:
 
 ```
 !!  No configuration yet. A template was copied to:
-!!      C:\SivaComm\api\appsettings.Production.json
+!!      C:\Server\sivacomapi\appsettings.Production.json
 !!  Fill in every REPLACE-ME …, then run this script again.
 ```
 
@@ -229,7 +229,7 @@ read.
 **Fill in the file:**
 
 ```powershell
-notepad C:\SivaComm\api\appsettings.Production.json
+notepad C:\Server\sivacomapi\appsettings.Production.json
 ```
 
 Change these values (everything else can stay as the template has it):
@@ -249,15 +249,15 @@ Change these values (everything else can stay as the template has it):
 | `Applications[0].Keys[0].Secret` | **S4** |
 | `Applications[0].Templates.PasswordResetOtp.Name` / `Language` | approved Authentication template, e.g. `sivayaan_otp` / `en` |
 | `Applications[0].Templates.Welcome.Name` / `Language` / `Parameters` | approved Utility template, e.g. `hms_welcome` / `en` / `2` |
-| `DataProtection:KeysPath` | `C:\\SivaComm\\keys` *(already set)* |
-| `Logging:File:PathFormat` | `C:\\SivaComm\\logs\\sivacomm-{Date}.log` *(already set)* |
+| `DataProtection:KeysPath` | `C:\\Server\\sivacomapi\\keys` *(already set)* |
+| `Logging:File:PathFormat` | `C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log` *(already set)* |
 
-In JSON, every backslash in a path is written twice (`C:\\SivaComm\\keys`).
+In JSON, every backslash in a path is written twice (`C:\\Server\\sivacomapi\\keys`).
 
 **Lock the file** to administrators and the service account:
 
 ```powershell
-icacls C:\SivaComm\api\appsettings.Production.json /inheritance:r /grant:r "Administrators:F" "SYSTEM:R"
+icacls C:\Server\sivacomapi\appsettings.Production.json /inheritance:r /grant:r "Administrators:F" "SYSTEM:R"
 ```
 
 ---
@@ -271,12 +271,12 @@ Same folder, same window:
 ```
 
 ```
-==> Stopping SivaCommApi                      (not on the first install)
-==> Copying the build to C:\SivaComm\api (keeping appsettings.Production.json)
+==> Stopping SivaComApi                      (not on the first install)
+==> Copying the build to C:\Server\sivacomapi (keeping appsettings.Production.json)
 ==> Applying database migrations
 Applying 1: 20261024155431_Initial            ("Already current." if step 4 used full-schema.sql)
-==> Creating service SivaCommApi
-==> Starting SivaCommApi
+==> Creating service SivaComApi
+==> Starting SivaComApi
 ==> Ready: http://localhost:6071/health/ready
 ```
 
@@ -295,7 +295,7 @@ application itself — a missing or development master key, or an invalid
 
 ```powershell
 Invoke-WebRequest http://localhost:6071/health/ready -UseBasicParsing | Select StatusCode, Content
-Get-Content (Get-ChildItem C:\SivaComm\logs\*.log | Sort LastWriteTime | Select -Last 1).FullName -Tail 20
+Get-Content (Get-ChildItem C:\Server\sivacomapi\logs\*.log | Sort LastWriteTime | Select -Last 1).FullName -Tail 20
 ```
 
 The log should contain:
@@ -312,7 +312,41 @@ configured. Messages are NOT sent…"* — expected).
 
 ## 7. Publish the API through the tunnel
 
-### If HMS_WEB's tunnel already runs on this VM (usual case)
+**Which case are you in?** Run on the VM:
+
+```powershell
+Get-Service cloudflared
+Test-Path C:\Windows\System32\config\systemprofile\.cloudflared\config.yml
+```
+
+- `cloudflared` **not found** → no tunnel on this VM: use *Dashboard-managed tunnel* below.
+- found, and `True` → a config-file tunnel runs here: *If HMS_WEB's tunnel already runs on this VM*.
+- found, and `False` → a dashboard-managed tunnel runs here: *Dashboard-managed tunnel*, step 3 onwards.
+
+**The one rule that matters:** the `sivacomapi` hostname must be served by a
+tunnel whose connector runs **on the same VM as SivaComApi**, with service
+**HTTP** `127.0.0.1:6071`, and must not also be listed on any other tunnel.
+
+### Dashboard-managed tunnel (recommended)
+
+1. If `cloudflared` is not installed: `winget install --id Cloudflare.cloudflared`.
+2. Cloudflare **Zero Trust → Networks → Tunnels → Create a tunnel →
+   Cloudflared**, name `sivacom-api`, environment **Windows**. Run the
+   `cloudflared.exe service install <token>` command it shows, on this VM.
+   The tunnel turns **Healthy**.
+3. That tunnel → **Public hostname → Add a public hostname**:
+
+   | Field | Value |
+   |---|---|
+   | Subdomain | `sivacomapi` |
+   | Domain | `sivayaantechnologies.com` |
+   | Type | **HTTP** (not HTTPS) |
+   | URL | `127.0.0.1:6071` |
+
+4. Open **every other tunnel** (including HMS's `hoapi` one): none may list
+   `sivacomapi`. Delete it wherever else it appears.
+
+### If HMS_WEB's tunnel already runs on this VM, from a config file
 
 1. Open its config:
    ```powershell
@@ -321,7 +355,7 @@ configured. Messages are NOT sent…"* — expected).
 2. Add this rule to `ingress:`, **above** the last `- service: http_status:404` line:
    ```yaml
      - hostname: sivacomapi.sivayaantechnologies.com
-       service: http://localhost:6071
+       service: http://127.0.0.1:6071
        originRequest:
          connectTimeout: 30s
          httpHostHeader: sivacomapi.sivayaantechnologies.com
@@ -357,8 +391,18 @@ Start-Service cloudflared
 Invoke-WebRequest https://sivacomapi.sivayaantechnologies.com/health/ready -UseBasicParsing | Select StatusCode, Content
 ```
 
+Windows PowerShell 5.1 needs TLS 1.2 switched on first, or every HTTPS call
+fails with *"The underlying connection was closed"*:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+```
+
 `200 ready` is success. `530`/`1033`: the tunnel is not connected. `502`:
-the tunnel is up but nothing answers on 6071 (step 6).
+the tunnel is up but its connector gets no answer — the public hostname's
+type is HTTPS instead of HTTP, its URL is not `127.0.0.1:6071`, the connector
+runs on a different machine from SivaComApi, or `sivacomapi` is still listed
+on another tunnel.
 
 ---
 
@@ -460,8 +504,8 @@ flow; switching back and forth is an edit and a restart.
 **API** — build new zips (step 2), copy the API zip to the VM, then:
 
 ```powershell
-& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U sivacomm -Fc -f "C:\SivaComm\backups\sivacomm-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacomm
-$rel = "C:\SivaComm\release-$(Get-Date -Format yyyyMMdd-HHmm)"
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U sivacomm -Fc -f "C:\Server\sivacomapi-backups\sivacomm-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacomm
+$rel = "C:\Deployments\sivacom\release-$(Get-Date -Format yyyyMMdd-HHmm)"
 Expand-Archive C:\Users\<you>\Downloads\SivaComm-api-*.zip -DestinationPath $rel -Force
 cd $rel; .\Install-SivaComm.ps1
 ```
@@ -474,14 +518,14 @@ drag in the new dashboard zip (or `npx wrangler pages deploy dist …`). The
 custom domain switches to it as soon as it finishes.
 
 **Roll back** — API: run `Install-SivaComm.ps1` from the previous
-`C:\SivaComm\release-…` folder (restore the dump first if the newer release
+`C:\Deployments\sivacom\release-…` folder (restore the dump first if the newer release
 migrated the database). Dashboard: Cloudflare → Deployments → the previous
 one → **Rollback to this deployment**. HMS only: set its
 `SivaComm:Enabled` to `false` and restart HMS — immediate.
 
 **Config-only changes** (rotate a key, new template, add an application,
-Meta token): edit `C:\SivaComm\api\appsettings.Production.json`, then
-`Restart-Service SivaCommApi`. Recipes: DEPLOYMENT.md §12.
+Meta token): edit `C:\Server\sivacomapi\appsettings.Production.json`, then
+`Restart-Service SivaComApi`. Recipes: DEPLOYMENT.md §12.
 
 ---
 
@@ -492,10 +536,12 @@ Meta token): edit `C:\SivaComm\api\appsettings.Production.json`, then
 | Installer: *ASP.NET Core 10 runtime is not installed* | runtime missing | step 3 |
 | Installer: *REPLACE-ME value(s)* | config not finished | step 5 |
 | Installer: migration fails with `28P01` / password authentication | `Database:Password` ≠ D1, or role missing | step 4/5 |
-| Service stops right after start | read the newest file in `C:\SivaComm\logs` — the first error names the setting | — |
+| Service stops right after start | read the newest file in `C:\Server\sivacomapi\logs` — the first error names the setting | — |
 | `https://sivacomapi…` → 530 / 1033 | tunnel not connected | `Get-Service cloudflared`; check `config.yml` |
-| `https://sivacomapi…` → 502 | nothing on `localhost:6071` | `Get-Service SivaCommApi`; `Urls` in config |
-| Dashboard: browser console shows *CORS* / *blocked by CORS policy* | `Cors:AllowedOrigins` ≠ the dashboard origin | exactly `https://sivacom.sivayaantechnologies.com`, restart SivaCommApi |
+| `https://sivacomapi…` → 502 | the tunnel cannot reach SivaComApi: hostname type HTTPS instead of HTTP, URL not `127.0.0.1:6071`, connector on another machine, or `sivacomapi` also listed on another tunnel | step 7, "The one rule that matters" |
+| `Invoke-WebRequest https://…` → *underlying connection was closed* | Windows PowerShell 5.1 using old TLS | `[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12` |
+| `localhost:6071` → *400 Invalid Hostname* | an IIS site is bound to 6071 | remove that site; SivaComApi runs as a service, not under IIS |
+| Dashboard: browser console shows *CORS* / *blocked by CORS policy* | `Cors:AllowedOrigins` ≠ the dashboard origin | exactly `https://sivacom.sivayaantechnologies.com`, restart SivaComApi |
 | Dashboard: sign-in returns but you are still on the sign-in page | using the `*.pages.dev` address, or the API not on HTTPS | use the custom domain; API through the tunnel |
 | Dashboard: everything fails with network errors | bundle built with the wrong `VITE_API_URL` | check `dashboard\.env.production`, rebuild, redeploy |
 | Meta webhook verify fails | step 7 not working, or S3 differs | fix and retry |
@@ -505,7 +551,7 @@ Meta token): edit `C:\SivaComm\api\appsettings.Production.json`, then
 
 ## Appendix: every value and where it goes
 
-| Value | SivaComm `C:\SivaComm\api\appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Elsewhere |
+| Value | SivaComm `C:\Server\sivacomapi\appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Elsewhere |
 |---|---|---|---|
 | API port | `Urls`: `http://localhost:6071` | `SivaComm:BaseUrl` (same VM) | tunnel `config.yml` service |
 | API public name | — | `SivaComm:BaseUrl` (other machine) | tunnel hostname; Meta callback URL; `dashboard\.env.production` |

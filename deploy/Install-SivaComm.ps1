@@ -21,14 +21,18 @@
 
     Elevated PowerShell, in the unzipped folder:
 
-        cd C:\SivaComm\release
+        cd C:\Deployments\sivacom\release-<date>
         .\Install-SivaComm.ps1
+
+    Installs into C:\Server\sivacomapi as the Windows service SivaComApi
+    (logs and keys in its logs\ and keys\ subfolders). Override with
+    -InstallDir and -ServiceName.
 #>
 
 [CmdletBinding()]
 param(
-    [string] $InstallDir = 'C:\SivaComm\api',
-    [string] $ServiceName = 'SivaCommApi',
+    [string] $InstallDir = 'C:\Server\sivacomapi',
+    [string] $ServiceName = 'SivaComApi',
 
     # The published build to install. Default: the api folder beside this script.
     [string] $Source
