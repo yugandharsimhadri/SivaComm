@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SivaComm flow diagrams</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 16mm; }
+  html, body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: #2C2C2A; background: #fff; }
+  section { page-break-after: always; break-after: page; }
+  section:last-child { page-break-after: auto; break-after: auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { font-size: 11.5px; color: #5F5E5A; margin: 0 0 10px; line-height: 1.45; }
+  .foot { font-size: 10px; color: #888780; margin-top: 6px; }
+  svg.d { width: 100%; height: auto; max-height: 232mm; display: block; }
+  ol.toc { font-size: 13px; line-height: 1.9; padding-left: 20px; }
+  table.legend { border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  table.legend td { padding: 4px 10px 4px 0; vertical-align: middle; }
+  .sw { display: inline-block; width: 22px; height: 12px; border-radius: 3px; border: 0.5px solid; vertical-align: middle; }
+
+  .t  { font-size: 14px; fill: #2C2C2A; }
+  .ts { font-size: 12px; fill: #5F5E5A; }
+  .th { font-size: 14px; font-weight: 600; fill: #2C2C2A; }
+  .arr { stroke: #73726C; stroke-width: 1.4; fill: none; }
+  .leader { stroke: #B4B2A9; stroke-width: 0.7; stroke-dasharray: 3 3; fill: none; }
+  rect.box { fill: #F7F6F2; stroke: #B4B2A9; }
+
+  .c-gray > rect   { fill: #F1EFE8; stroke: #5F5E5A; }
+  .c-gray > .th    { fill: #444441; }  .c-gray > .ts { fill: #5F5E5A; }
+  .c-purple > rect { fill: #EEEDFE; stroke: #534AB7; }
+  .c-purple > .th  { fill: #3C3489; }  .c-purple > .ts { fill: #534AB7; }
+  .c-teal > rect   { fill: #E1F5EE; stroke: #0F6E56; }
+  .c-teal > .th    { fill: #085041; }  .c-teal > .ts { fill: #0F6E56; }
+  .c-coral > rect  { fill: #FAECE7; stroke: #993C1D; }
+  .c-coral > .th   { fill: #712B13; }  .c-coral > .ts { fill: #993C1D; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#73726C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+</svg>
+
+<!-- ───────────────────────────── Cover ───────────────────────────── -->
+<section>
+  <h1>SivaComm — flow diagrams</h1>
+  <p class="sub">Sivayaan Communications: central WhatsApp OTP and messaging service, and its integration with HMS_WEB.<br>
+  Companion to <b>docs/WORKFLOWS.md</b> (every request and response body) and <b>docs/DEPLOYMENT.md</b> (step-by-step commands).</p>
+
+  <h2 style="margin-top:22px">Contents</h2>
+  <ol class="toc">
+    <li>Password reset with SivaComm (<code>SivaComm:Enabled = true</code>)</li>
+    <li>Password reset, normal flow (<code>SivaComm:Enabled = false</code>)</li>
+    <li>Failure paths</li>
+    <li>Welcome message and delivery receipts</li>
+    <li>Deployment steps</li>
+  </ol>
+
+  <h2 style="margin-top:22px">How to read them</h2>
+  <table class="legend">
+    <tr><td><svg width="60" height="12"><line x1="2" y1="6" x2="54" y2="6" class="arr" marker-end="url(#arrow)"/></svg></td><td>Request</td></tr>
+    <tr><td><svg width="60" height="12"><line x1="2" y1="6" x2="54" y2="6" class="arr" stroke-dasharray="4 3" marker-end="url(#arrow)"/></svg></td><td>Response</td></tr>
+    <tr><td><span class="sw" style="background:#EEEDFE;border-color:#534AB7"></span></td><td>HMS_WEB (owns the user, the reset transaction and the password)</td></tr>
+    <tr><td><span class="sw" style="background:#E1F5EE;border-color:#0F6E56"></span></td><td>SivaComm (generates, sends and verifies the code; tracks delivery)</td></tr>
+    <tr><td><span class="sw" style="background:#F1EFE8;border-color:#5F5E5A"></span></td><td>Outside both: browser, Meta WhatsApp, or a neutral step</td></tr>
+    <tr><td><span class="sw" style="background:#FAECE7;border-color:#993C1D"></span></td><td>Failure that ends the reset (start again)</td></tr>
+  </table>
+
+  <h2 style="margin-top:22px">Three rules the flows enforce</h2>
+  <ol class="toc" style="line-height:1.6">
+    <li>The password goes from the browser to HMS_WEB and stops there. SivaComm never receives it.</li>
+    <li>The verification grant goes from SivaComm to HMS_WEB only. The browser never sees it.</li>
+    <li>A timeout or outage anywhere is a retryable failure, never a success.</li>
+  </ol>
+  <p class="foot">Generated 2026-10-25 from SivaComm commit e93ef60 and HMS_WEB commit 3855320.</p>
+</section>
+
+<!-- ─────────────────────── 1. Reset with SivaComm ─────────────────────── -->
+<section>
+  <h2>1. Password reset with SivaComm</h2>
+  <p class="sub"><code>SivaComm:Enabled = true</code> in HMS_WEB's config file. Calls marked “signed” carry an HMAC signature made with the key id and secret held in both config files.</p>
+<svg class="d" viewBox="0 0 680 770" role="img">
+<g class="c-gray"><rect x="40" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="110" y="42" text-anchor="middle" dominant-baseline="central">Browser</text></g>
+<g class="c-purple"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">HMS_WEB</text></g>
+<g class="c-teal"><rect x="360" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="430" y="42" text-anchor="middle" dominant-baseline="central">SivaComm</text></g>
+<g class="c-gray"><rect x="520" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="590" y="42" text-anchor="middle" dominant-baseline="central">Meta WhatsApp</text></g>
+<line class="leader" x1="110" y1="64" x2="110" y2="84"/><line class="leader" x1="110" y1="106" x2="110" y2="340"/><line class="leader" x1="110" y1="362" x2="110" y2="524"/><line class="leader" x1="110" y1="546" x2="110" y2="750"/>
+<line class="leader" x1="270" y1="64" x2="270" y2="84"/><line class="leader" x1="270" y1="106" x2="270" y2="340"/><line class="leader" x1="270" y1="362" x2="270" y2="524"/><line class="leader" x1="270" y1="546" x2="270" y2="668"/><line class="leader" x1="270" y1="696" x2="270" y2="750"/>
+<line class="leader" x1="430" y1="64" x2="430" y2="84"/><line class="leader" x1="430" y1="106" x2="430" y2="340"/><line class="leader" x1="430" y1="362" x2="430" y2="524"/><line class="leader" x1="430" y1="546" x2="430" y2="750"/>
+<line class="leader" x1="590" y1="64" x2="590" y2="84"/><line class="leader" x1="590" y1="106" x2="590" y2="340"/><line class="leader" x1="590" y1="362" x2="590" y2="524"/><line class="leader" x1="590" y1="546" x2="590" y2="750"/>
+<g class="c-gray"><rect x="40" y="84" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="95" dominant-baseline="central">Ask for a code</text></g>
+<text class="ts" x="118" y="129">username</text>
+<line class="arr" x1="110" y1="136" x2="266" y2="136" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="165">create challenge (signed)</text>
+<line class="arr" x1="270" y1="172" x2="426" y2="172" marker-end="url(#arrow)"/>
+<text class="ts" x="422" y="201" text-anchor="end">202 QUEUED</text>
+<line class="arr" x1="430" y1="208" x2="274" y2="208" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="262" y="237" text-anchor="end">reset token only</text>
+<line class="arr" x1="270" y1="244" x2="114" y2="244" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="438" y="273">send code template</text>
+<line class="arr" x1="430" y1="280" x2="586" y2="280" marker-end="url(#arrow)"/>
+<text class="ts" x="582" y="309" text-anchor="end">code on phone</text>
+<line class="arr" x1="590" y1="316" x2="114" y2="316" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="40" y="340" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="351" dominant-baseline="central">Verify the code</text></g>
+<text class="ts" x="118" y="385">6-digit code</text>
+<line class="arr" x1="110" y1="392" x2="266" y2="392" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="421">verify (signed)</text>
+<line class="arr" x1="270" y1="428" x2="426" y2="428" marker-end="url(#arrow)"/>
+<text class="ts" x="422" y="457" text-anchor="end">VERIFIED + grant</text>
+<line class="arr" x1="430" y1="464" x2="274" y2="464" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="262" y="493" text-anchor="end">VERIFIED, no grant</text>
+<line class="arr" x1="270" y1="500" x2="114" y2="500" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="40" y="524" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="535" dominant-baseline="central">Set the new password</text></g>
+<text class="ts" x="118" y="569">new password</text>
+<line class="arr" x1="110" y1="576" x2="266" y2="576" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="605">consume grant (signed)</text>
+<line class="arr" x1="270" y1="612" x2="426" y2="612" marker-end="url(#arrow)"/>
+<text class="ts" x="422" y="641" text-anchor="end">CONSUMED</text>
+<line class="arr" x1="430" y1="648" x2="274" y2="648" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<g class="c-purple"><rect x="190" y="668" width="160" height="28" rx="4" stroke-width="0.5"/><text class="ts" x="270" y="682" text-anchor="middle" dominant-baseline="central">save password here</text></g>
+<text class="ts" x="262" y="725" text-anchor="end">PASSWORD_CHANGED</text>
+<line class="arr" x1="270" y1="732" x2="114" y2="732" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+</svg>
+</section>
+
+<!-- ─────────────────────── 2. Normal flow ─────────────────────── -->
+<section>
+  <h2>2. Password reset, normal flow</h2>
+  <p class="sub"><code>SivaComm:Enabled = false</code> (the default). The browser sees the same three steps and responses; HMS_WEB handles the code itself through its own WhatsApp settings, and SivaComm is not involved.</p>
+<svg class="d" viewBox="0 0 680 650" role="img">
+<g class="c-gray"><rect x="40" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="110" y="42" text-anchor="middle" dominant-baseline="central">Browser</text></g>
+<g class="c-purple"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">HMS_WEB</text></g>
+<g class="c-purple"><rect x="360" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="430" y="42" text-anchor="middle" dominant-baseline="central">HMS database</text></g>
+<g class="c-gray"><rect x="520" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="590" y="42" text-anchor="middle" dominant-baseline="central">Meta WhatsApp</text></g>
+<line class="leader" x1="110" y1="64" x2="110" y2="84"/><line class="leader" x1="110" y1="106" x2="110" y2="304"/><line class="leader" x1="110" y1="326" x2="110" y2="488"/><line class="leader" x1="110" y1="510" x2="110" y2="630"/>
+<line class="leader" x1="270" y1="64" x2="270" y2="84"/><line class="leader" x1="270" y1="106" x2="270" y2="304"/><line class="leader" x1="270" y1="326" x2="270" y2="488"/><line class="leader" x1="270" y1="510" x2="270" y2="630"/>
+<line class="leader" x1="430" y1="64" x2="430" y2="84"/><line class="leader" x1="430" y1="106" x2="430" y2="304"/><line class="leader" x1="430" y1="326" x2="430" y2="488"/><line class="leader" x1="430" y1="510" x2="430" y2="630"/>
+<line class="leader" x1="590" y1="64" x2="590" y2="84"/><line class="leader" x1="590" y1="106" x2="590" y2="304"/><line class="leader" x1="590" y1="326" x2="590" y2="488"/><line class="leader" x1="590" y1="510" x2="590" y2="630"/>
+<g class="c-gray"><rect x="40" y="84" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="95" dominant-baseline="central">Ask for a code</text></g>
+<text class="ts" x="118" y="129">username</text>
+<line class="arr" x1="110" y1="136" x2="266" y2="136" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="165">store hashed code</text>
+<line class="arr" x1="270" y1="172" x2="426" y2="172" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="201">send code template</text>
+<line class="arr" x1="270" y1="208" x2="586" y2="208" marker-end="url(#arrow)"/>
+<text class="ts" x="262" y="237" text-anchor="end">reset token only</text>
+<line class="arr" x1="270" y1="244" x2="114" y2="244" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="582" y="273" text-anchor="end">code on phone</text>
+<line class="arr" x1="590" y1="280" x2="114" y2="280" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="40" y="304" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="315" dominant-baseline="central">Verify the code</text></g>
+<text class="ts" x="118" y="349">6-digit code</text>
+<line class="arr" x1="110" y1="356" x2="266" y2="356" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="385">check code</text>
+<line class="arr" x1="270" y1="392" x2="426" y2="392" marker-end="url(#arrow)"/>
+<text class="ts" x="422" y="421" text-anchor="end">match, 5 tries max</text>
+<line class="arr" x1="430" y1="428" x2="274" y2="428" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="262" y="457" text-anchor="end">VERIFIED</text>
+<line class="arr" x1="270" y1="464" x2="114" y2="464" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="40" y="488" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="499" dominant-baseline="central">Set the new password</text></g>
+<text class="ts" x="118" y="533">new password</text>
+<line class="arr" x1="110" y1="540" x2="266" y2="540" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="569">save password</text>
+<line class="arr" x1="270" y1="576" x2="426" y2="576" marker-end="url(#arrow)"/>
+<text class="ts" x="262" y="605" text-anchor="end">PASSWORD_CHANGED</text>
+<line class="arr" x1="270" y1="612" x2="114" y2="612" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+</svg>
+</section>
+
+<!-- ─────────────────────── 3. Failure paths ─────────────────────── -->
+<section>
+  <h2>3. Failure paths</h2>
+  <p class="sub">What each of HMS_WEB's two calls to SivaComm can return, and what the browser does next. “Expired, locked” covers EXPIRED, ATTEMPTS_EXCEEDED, ALREADY_USED and CANCELLED. Resubmitting after a timeout is safe: the same idempotency key makes SivaComm answer CONSUMED again rather than treat it as a replay.</p>
+<svg class="d" viewBox="0 0 680 490" role="img">
+<g><rect class="box" x="240" y="30" width="200" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="48" text-anchor="middle" dominant-baseline="central">Verify code</text><text class="ts" x="340" y="68" text-anchor="middle" dominant-baseline="central">HMS asks SivaComm</text></g>
+<line class="arr" x1="340" y1="86" x2="115" y2="146" marker-end="url(#arrow)"/>
+<line class="arr" x1="340" y1="86" x2="265" y2="146" marker-end="url(#arrow)"/>
+<line class="arr" x1="340" y1="86" x2="415" y2="146" marker-end="url(#arrow)"/>
+<line class="arr" x1="340" y1="86" x2="565" y2="146" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="50" y="150" width="130" height="56" rx="8" stroke-width="0.5"/><text class="th" x="115" y="168" text-anchor="middle" dominant-baseline="central">VERIFIED</text><text class="ts" x="115" y="188" text-anchor="middle" dominant-baseline="central">password step</text></g>
+<g class="c-gray"><rect x="200" y="150" width="130" height="56" rx="8" stroke-width="0.5"/><text class="th" x="265" y="168" text-anchor="middle" dominant-baseline="central">INVALID_OTP</text><text class="ts" x="265" y="188" text-anchor="middle" dominant-baseline="central">retry, N left</text></g>
+<g class="c-coral"><rect x="350" y="150" width="130" height="56" rx="8" stroke-width="0.5"/><text class="th" x="415" y="168" text-anchor="middle" dominant-baseline="central">Expired, locked</text><text class="ts" x="415" y="188" text-anchor="middle" dominant-baseline="central">start again</text></g>
+<g class="c-gray"><rect x="500" y="150" width="130" height="56" rx="8" stroke-width="0.5"/><text class="th" x="565" y="168" text-anchor="middle" dominant-baseline="central">Timeout, 5xx</text><text class="ts" x="565" y="188" text-anchor="middle" dominant-baseline="central">503, retry</text></g>
+<g><rect class="box" x="240" y="250" width="200" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="268" text-anchor="middle" dominant-baseline="central">Set password</text><text class="ts" x="340" y="288" text-anchor="middle" dominant-baseline="central">HMS consumes grant</text></g>
+<line class="arr" x1="340" y1="306" x2="145" y2="366" marker-end="url(#arrow)"/>
+<line class="arr" x1="340" y1="306" x2="340" y2="366" marker-end="url(#arrow)"/>
+<line class="arr" x1="340" y1="306" x2="535" y2="366" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="60" y="370" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="145" y="388" text-anchor="middle" dominant-baseline="central">CONSUMED</text><text class="ts" x="145" y="408" text-anchor="middle" dominant-baseline="central">password saved</text></g>
+<g class="c-gray"><rect x="255" y="370" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="388" text-anchor="middle" dominant-baseline="central">Timeout, 5xx</text><text class="ts" x="340" y="408" text-anchor="middle" dominant-baseline="central">resubmit, same key</text></g>
+<g class="c-coral"><rect x="450" y="370" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="535" y="388" text-anchor="middle" dominant-baseline="central">ALREADY_USED</text><text class="ts" x="535" y="408" text-anchor="middle" dominant-baseline="central">start again</text></g>
+<text class="ts" x="340" y="462" text-anchor="middle">Teal: success · Gray: retry, nothing changed · Coral: reset ended, start again</text>
+</svg>
+</section>
+
+<!-- ─────────────────────── 4. Welcome + receipts ─────────────────────── -->
+<section>
+  <h2>4. Welcome message and delivery receipts</h2>
+  <p class="sub">HMS_WEB gets 202 QUEUED before anything is sent, so registration never waits on Meta. Reset codes use the same send path. Meta signs each receipt and SivaComm checks it first; a status never moves backwards.</p>
+<svg class="d" viewBox="0 0 680 560" role="img">
+<g class="c-purple"><rect x="40" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="110" y="42" text-anchor="middle" dominant-baseline="central">HMS_WEB</text></g>
+<g class="c-teal"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">SivaComm API</text></g>
+<g class="c-teal"><rect x="360" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="430" y="42" text-anchor="middle" dominant-baseline="central">Outbox worker</text></g>
+<g class="c-gray"><rect x="520" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="590" y="42" text-anchor="middle" dominant-baseline="central">Meta WhatsApp</text></g>
+<line class="leader" x1="110" y1="64" x2="110" y2="84"/><line class="leader" x1="110" y1="106" x2="110" y2="232"/><line class="leader" x1="110" y1="254" x2="110" y2="392"/><line class="leader" x1="110" y1="414" x2="110" y2="540"/>
+<line class="leader" x1="270" y1="64" x2="270" y2="84"/><line class="leader" x1="270" y1="106" x2="270" y2="232"/><line class="leader" x1="270" y1="254" x2="270" y2="392"/><line class="leader" x1="270" y1="414" x2="270" y2="462"/><line class="leader" x1="270" y1="490" x2="270" y2="540"/>
+<line class="leader" x1="430" y1="64" x2="430" y2="84"/><line class="leader" x1="430" y1="106" x2="430" y2="232"/><line class="leader" x1="430" y1="254" x2="430" y2="340"/><line class="leader" x1="430" y1="368" x2="430" y2="392"/><line class="leader" x1="430" y1="414" x2="430" y2="540"/>
+<line class="leader" x1="590" y1="64" x2="590" y2="84"/><line class="leader" x1="590" y1="106" x2="590" y2="232"/><line class="leader" x1="590" y1="254" x2="590" y2="392"/><line class="leader" x1="590" y1="414" x2="590" y2="540"/>
+<g class="c-gray"><rect x="40" y="84" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="95" dominant-baseline="central">Queue</text></g>
+<text class="ts" x="118" y="129">welcome (signed)</text>
+<line class="arr" x1="110" y1="136" x2="266" y2="136" marker-end="url(#arrow)"/>
+<text class="ts" x="262" y="165" text-anchor="end">202 QUEUED</text>
+<line class="arr" x1="270" y1="172" x2="114" y2="172" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="278" y="201">outbox row</text>
+<line class="arr" x1="270" y1="208" x2="426" y2="208" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="40" y="232" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="243" dominant-baseline="central">Send</text></g>
+<text class="ts" x="438" y="277">hms_welcome</text>
+<line class="arr" x1="430" y1="284" x2="586" y2="284" marker-end="url(#arrow)"/>
+<text class="ts" x="582" y="313" text-anchor="end">accepted, wamid</text>
+<line class="arr" x1="590" y1="320" x2="434" y2="320" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="355" y="340" width="150" height="28" rx="4" stroke-width="0.5"/><text class="ts" x="430" y="354" text-anchor="middle" dominant-baseline="central">mark Submitted</text></g>
+<g class="c-gray"><rect x="40" y="392" width="600" height="22" rx="4" stroke-width="0.5"/><text class="th" x="56" y="403" dominant-baseline="central">Delivery receipts</text></g>
+<text class="ts" x="582" y="437" text-anchor="end">sent, delivered, read</text>
+<line class="arr" x1="590" y1="444" x2="274" y2="444" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="185" y="462" width="170" height="28" rx="4" stroke-width="0.5"/><text class="ts" x="270" y="476" text-anchor="middle" dominant-baseline="central">status only moves forward</text></g>
+<text class="ts" x="278" y="513">200 OK</text>
+<line class="arr" x1="270" y1="520" x2="586" y2="520" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+</svg>
+</section>
+
+<!-- ─────────────────────── 5. Deployment ─────────────────────── -->
+<section>
+  <h2>5. Deployment steps</h2>
+  <p class="sub">In order. Meta setup is first only because its approvals take days; steps 2–7 can run before it finishes (with the WhatsApp section empty, SivaComm runs and records each message as not sent). Commands for every step: docs/DEPLOYMENT.md.</p>
+<svg class="d" viewBox="0 0 680 600" role="img">
+<g class="c-gray"><rect x="190" y="20" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="36" text-anchor="middle" dominant-baseline="central">Meta setup</text><text class="ts" x="340" y="54" text-anchor="middle" dominant-baseline="central">number, token, 2 templates</text></g>
+<line class="arr" x1="340" y1="68" x2="340" y2="84" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="190" y="88" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="104" text-anchor="middle" dominant-baseline="central">SivaComm database</text><text class="ts" x="340" y="122" text-anchor="middle" dominant-baseline="central">sivacomm role and database</text></g>
+<line class="arr" x1="340" y1="136" x2="340" y2="152" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="190" y="156" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="172" text-anchor="middle" dominant-baseline="central">Generate secrets</text><text class="ts" x="340" y="190" text-anchor="middle" dominant-baseline="central">master key, app secret</text></g>
+<line class="arr" x1="340" y1="204" x2="340" y2="220" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="190" y="224" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="240" text-anchor="middle" dominant-baseline="central">SivaComm config file</text><text class="ts" x="340" y="258" text-anchor="middle" dominant-baseline="central">replace every REPLACE-ME</text></g>
+<line class="arr" x1="340" y1="272" x2="340" y2="288" marker-end="url(#arrow)"/>
+<g class="c-teal"><rect x="190" y="292" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="308" text-anchor="middle" dominant-baseline="central">Deploy-SivaComm.ps1</text><text class="ts" x="340" y="326" text-anchor="middle" dominant-baseline="central">build, migrate, Windows service</text></g>
+<line class="arr" x1="340" y1="340" x2="340" y2="356" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="190" y="360" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="376" text-anchor="middle" dominant-baseline="central">Tunnel and webhook</text><text class="ts" x="340" y="394" text-anchor="middle" dominant-baseline="central">HTTPS name, Meta webhook</text></g>
+<line class="arr" x1="340" y1="408" x2="340" y2="424" marker-end="url(#arrow)"/>
+<g class="c-purple"><rect x="190" y="428" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="444" text-anchor="middle" dominant-baseline="central">HMS_WEB config and deploy</text><text class="ts" x="340" y="462" text-anchor="middle" dominant-baseline="central">SivaComm:Enabled true, same key</text></g>
+<line class="arr" x1="340" y1="476" x2="340" y2="492" marker-end="url(#arrow)"/>
+<g class="c-gray"><rect x="190" y="496" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="512" text-anchor="middle" dominant-baseline="central">Test end to end</text><text class="ts" x="340" y="530" text-anchor="middle" dominant-baseline="central">welcome, reset, dashboard</text></g>
+<text class="ts" x="340" y="576" text-anchor="middle">Teal: SivaComm server · Purple: HMS_WEB · Gray: outside both</text>
+</svg>
+</section>
+
+</body>
+</html>

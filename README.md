@@ -29,6 +29,7 @@ docs/
 |---|---|
 | **Read everything — flows, states, failures, all configuration** | [docs/GUIDE.md](docs/GUIDE.md) |
 | See every request and response, hop by hop, as diagrams | [docs/WORKFLOWS.md](docs/WORKFLOWS.md) |
+| Print or share the flow diagrams (PDF, 6 pages) | [docs/diagrams/SivaComm-Flow-Diagrams.pdf](docs/diagrams/SivaComm-Flow-Diagrams.pdf) — source: [flow-diagrams.html](docs/diagrams/flow-diagrams.html) |
 | Configure and deploy, step by step (all settings in config files) | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — `deploy/Deploy-SivaComm.ps1`, `deploy/appsettings.Production.json.template` |
 | Set up the messages (Meta templates, server config, dashboard, app config) | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
 | Call SivaComm from an application | [docs/API.md](docs/API.md) — endpoints, signature, statuses |
