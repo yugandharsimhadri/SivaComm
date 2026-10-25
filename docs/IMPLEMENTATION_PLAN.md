@@ -3,7 +3,7 @@
 Status (2026-10-24): **steps 1–8 of §12 implemented for HMS_WEB**; Swarnakshi
 and TransTrack Web deliberately deferred until HMS_WEB is proven. HMS_WEB's
 changes are on its branch `feature/sivacomm-otp`, behind
-`Messaging:Mode = SivaComm` (default `Local`, unchanged behaviour).
+`SivaComm:Enabled = true` (default `false`, unchanged behaviour).
 Live WhatsApp delivery is **not** verified — no Meta credentials exist yet.
 
 Where the build differs from this plan:
@@ -198,7 +198,7 @@ provider health), Messages (paginated, filters, masked phones), Applications
 3. Verify + grant + consume (atomicity / concurrency / replay tests)
 4. WhatsApp provider port + webhook
 5. `SivaComm.Client` library
-6. HMS_WEB integration behind `Messaging:Mode = Local | SivaComm` (Local stays
+6. HMS_WEB integration behind `SivaComm:Enabled = false | true` (false stays
    default, so current behaviour and deployment are unchanged until switched);
    3-step reset page; docs updated
 7. Dashboard

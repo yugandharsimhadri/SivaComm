@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,31 @@ using SivaComm.Data.Providers;
 using SivaComm.Data.Security;
 using SivaComm.Data.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+// Content root is the executable's folder, so a Windows service (whose
+// working directory is System32) still finds appsettings*.json beside it.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService()
+        ? AppContext.BaseDirectory
+        : null,
+});
 
 // Git-ignored; the developer's database password and anything else secret.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// (On a server, appsettings.Production.json beside the exe plays this part.)
+// IgnoreLocalSettings=true is for the automated tests, which must not pick
+// up a developer's own file.
+if (!builder.Configuration.GetValue<bool>("IgnoreLocalSettings"))
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+// Installed with sc.exe (deploy\Deploy-SivaComm.ps1): report start/stop to
+// the service manager. A no-op when run from a console.
+builder.Host.UseWindowsService(o => o.ServiceName = "SivaCommApi");
+
+// Logging:File:PathFormat in the config file, e.g. "C:\\SivaComm\\logs\\sivacomm-{Date}.log".
+// A service has no console, so without this its logs go nowhere useful.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Logging:File:PathFormat"]))
+    builder.Logging.AddFile(builder.Configuration.GetSection("Logging:File"));
 
 // ── Configuration, checked up front ──────────────────────────────────────
 var config = builder.Configuration;
@@ -59,6 +81,7 @@ builder.Services.AddSingleton<ApplicationService>();
 builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddSingleton<AdminService>();
 builder.Services.AddSingleton<RequestAuthenticator>();
+builder.Services.AddSingleton<ConfiguredApplicationsSync>();
 builder.Services.AddScoped<OutboxProcessor>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddHostedService<OutboxWorker>();
@@ -70,6 +93,25 @@ if (whatsApp.IsConfigured)
     builder.Services.AddHttpClient<IMessageProvider, WhatsAppCloudProvider>(c => c.Timeout = TimeSpan.FromSeconds(15));
 else
     builder.Services.AddSingleton<IMessageProvider, LoggingMessageProvider>();
+
+// DataProtection:KeysPath — where the keys that encrypt the dashboard's login
+// cookie live. Set it on a server, or every restart signs every operator out.
+var keysPath = config["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(keysPath))
+{
+    var dp = builder.Services.AddDataProtection()
+        .SetApplicationName("SivaComm")
+        .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+    if (OperatingSystem.IsWindows()) dp.ProtectKeysWithDpapi(protectToLocalMachine: true);
+}
+
+// Applications — the consuming applications, their signing keys and their
+// templates, read from the config file and applied at startup. Validated
+// here so a typo stops the service at start, with the reason.
+var configuredApps = config.GetSection("Applications").Get<List<ConfiguredApplication>>() ?? [];
+var appErrors = ConfiguredApplicationsSync.Validate(configuredApps);
+if (appErrors.Count > 0)
+    throw new InvalidOperationException("The Applications section is not valid:\n  " + string.Join("\n  ", appErrors));
 
 // ── Authentication ───────────────────────────────────────────────────────
 // Two audiences that never overlap: applications sign each request; people
@@ -158,14 +200,23 @@ if (registerAt >= 0)
     return;
 }
 
+if (configuredApps.Count > 0)
+{
+    foreach (var line in await app.Services.GetRequiredService<ConfiguredApplicationsSync>().ApplyAsync(configuredApps, default))
+        app.Logger.LogInformation("Application from configuration — {Summary}", line);
+}
+
 if (await app.Services.GetRequiredService<AdminService>()
         .EnsureBootstrapAdminAsync(config["Admin:Username"], config["Admin:Password"], default))
     app.Logger.LogWarning("Created the first dashboard admin '{User}' from configuration.", config["Admin:Username"]);
 
 if (!whatsApp.IsConfigured)
-    app.Logger.LogWarning(
-        "No WhatsApp provider is configured. Messages are logged instead of sent{Detail}. See docs/WHATSAPP_SETUP.md.",
-        app.Environment.IsDevelopment() ? " (with their codes, because this is Development)" : ", without their content");
+{
+    if (app.Environment.IsDevelopment())
+        app.Logger.LogWarning("No WhatsApp provider is configured. Messages are logged instead of sent, with their codes, because this is Development.");
+    else
+        app.Logger.LogWarning("No WhatsApp provider is configured. Messages are NOT sent and their content is not logged. Fill the WhatsApp section — see docs/WHATSAPP_SETUP.md.");
+}
 
 // ── Pipeline ─────────────────────────────────────────────────────────────
 var forwarded = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor };
@@ -207,6 +258,8 @@ app.MapGet("/health/ready", async (IDbContextFactory<CommDbContext> factory, Tim
 }).AllowAnonymous();
 
 // The dashboard is a single-page app: unknown non-API paths serve its shell.
+// An unknown /api path is a plain 404, not the dashboard's HTML.
+app.MapFallback("/api/{**rest}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
 app.Run();

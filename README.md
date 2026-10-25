@@ -27,16 +27,19 @@ docs/
 
 | I want to… | Read |
 |---|---|
+| **Read everything — flows, states, failures, all configuration** | [docs/GUIDE.md](docs/GUIDE.md) |
+| See every request and response, hop by hop, as diagrams | [docs/WORKFLOWS.md](docs/WORKFLOWS.md) |
+| Configure and deploy, step by step (all settings in config files) | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — `deploy/Deploy-SivaComm.ps1`, `deploy/appsettings.Production.json.template` |
+| Set up the messages (Meta templates, server config, dashboard, app config) | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
 | Call SivaComm from an application | [docs/API.md](docs/API.md) — endpoints, signature, statuses |
 | Understand the OTP and grant rules | [docs/SECURITY.md](docs/SECURITY.md) |
-| Run it locally, or deploy it | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Connect a real WhatsApp number | [docs/WHATSAPP_SETUP.md](docs/WHATSAPP_SETUP.md) |
 | See the design and what is still open | [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) |
 
 ## Status
 
-- **HMS_WEB** is integrated, behind its `Messaging:Mode = SivaComm` setting
-  (default stays `Local`). See HMS_WEB `docs/PASSWORD_RESET.md`.
+- **HMS_WEB** is integrated, behind its `SivaComm:Enabled` setting
+  (default stays `false`, the normal flow). See HMS_WEB `docs/PASSWORD_RESET.md`.
 - **Swarnakshi, TransTrack Web**: next, after HMS_WEB is proven. Neither has
   a self-service reset today, so each needs its own reset flow built, not
   just a re-wire.

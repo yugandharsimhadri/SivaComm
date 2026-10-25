@@ -45,6 +45,7 @@ public sealed class ApiTests : IAsyncLifetime
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Development");
+            b.UseSetting("IgnoreLocalSettings", "true");
             b.UseSetting("Database:ConnectionString", _db.ConnectionString);
             b.UseSetting("Database:MigrateOnStartup", "false");
             b.UseSetting("Worker:Enabled", "false");

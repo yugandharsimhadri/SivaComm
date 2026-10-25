@@ -1,0 +1,133 @@
+{
+  "//": [
+    "SivaComm production configuration. EVERY setting lives in this one file.",
+    "Copy it to the install folder (default C:\\Services\\SivaComm) as appsettings.Production.json,",
+    "replace every REPLACE-ME, and keep it out of source control - it holds the database password,",
+    "the master key, the Meta token and each application's signing secret.",
+    "Guide: docs/DEPLOYMENT.md. Every key is explained in docs/GUIDE.md section 9."
+  ],
+
+  "Urls": "http://localhost:5290",
+
+  "Database": {
+    "//": "The sivacomm role and database (docs/DEPLOYMENT.md step 2). Use SslMode Require if PostgreSQL is on another machine.",
+    "Host": "localhost",
+    "Port": 5432,
+    "Name": "sivacomm",
+    "Username": "sivacomm",
+    "Password": "REPLACE-ME",
+    "SslMode": "Prefer",
+    "MigrateOnStartup": false
+  },
+
+  "Security": {
+    "//": [
+      "MasterKey: 32 random bytes, base64. Generate once:",
+      "  $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)",
+      "Keep a copy OUTSIDE this server and away from database backups. Never change it casually:",
+      "it decrypts stored phone numbers and queued messages."
+    ],
+    "MasterKey": "REPLACE-ME",
+    "ClockSkewSeconds": 300
+  },
+
+  "Admin": {
+    "//": "First dashboard login. Used only while no admin exists in the database; afterwards editing it does nothing.",
+    "Username": "ops",
+    "Password": "REPLACE-ME"
+  },
+
+  "WhatsApp": {
+    "//": [
+      "From Meta (docs/WHATSAPP_SETUP.md). Leave AccessToken or PhoneNumberId empty and nothing is sent:",
+      "messages are written to the log instead (without their content, outside Development).",
+      "AccessToken        - the PERMANENT system-user token, not the 24-hour one.",
+      "PhoneNumberId      - WhatsApp > API Setup. A long id, not the phone number.",
+      "AppSecret          - App settings > Basic. Checks webhook signatures; empty = every webhook refused.",
+      "WebhookVerifyToken - any random string; type the same into Meta's webhook setup."
+    ],
+    "AccessToken": "",
+    "PhoneNumberId": "",
+    "AppSecret": "",
+    "WebhookVerifyToken": "",
+    "ApiVersion": "v21.0"
+  },
+
+  "Messaging": {
+    "//": "Prepended to a bare 10-digit number. Empty = refuse numbers without a country code.",
+    "DefaultCountryCode": "91"
+  },
+
+  "Applications": [
+    {
+      "//": [
+        "One entry per consuming application. Applied at every start: the database follows this file.",
+        "Code           - the application's SivaComm:ClientId.",
+        "Keys           - KeyId + Secret, the SAME two values go into that application's config file.",
+        "                 Secret: 32+ random characters. Generate:",
+        "                 $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)",
+        "                 Rotate: add a second key, deploy it to the application, then set the old one Revoked: true.",
+        "Templates      - names and languages EXACTLY as approved in WhatsApp Manager.",
+        "                 PasswordResetOtp is an Authentication template (always 1 parameter: the code).",
+        "                 Welcome is a Utility template; Parameters = how many {{n}} it has."
+      ],
+      "Code": "hms-web",
+      "Name": "Sivayaan HMS",
+      "Enabled": true,
+      "Keys": [
+        { "KeyId": "hms-2026-10", "Secret": "REPLACE-ME-WITH-32-PLUS-RANDOM-CHARACTERS", "Revoked": false }
+      ],
+      "Templates": {
+        "PasswordResetOtp": { "Name": "sivayaan_otp", "Language": "en" },
+        "Welcome": { "Name": "hms_welcome", "Language": "en", "Parameters": 2 }
+      }
+    }
+  ],
+
+  "DataProtection": {
+    "//": "Where the dashboard's login-cookie keys are kept. Without it every restart signs operators out.",
+    "KeysPath": "C:\\Services\\SivaComm\\keys"
+  },
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore": "Warning"
+    },
+    "File": {
+      "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
+      "PathFormat": "C:\\Services\\SivaComm\\logs\\sivacomm-{Date}.log",
+      "RetainedFileCountLimit": 31
+    }
+  },
+
+  "Otp": {
+    "//": "Security policy. The defaults are deliberate - read docs/SECURITY.md before changing any.",
+    "Length": 6,
+    "ExpiryMinutes": 10,
+    "MaxAttempts": 5,
+    "MaxSendsPerWindow": 3,
+    "SendWindowMinutes": 15,
+    "ResendCooldownSeconds": 60,
+    "GrantExpiryMinutes": 10
+  },
+
+  "Worker": {
+    "Enabled": true,
+    "BatchSize": 10,
+    "MaxConcurrency": 4,
+    "MaxAttempts": 5,
+    "PollIntervalMilliseconds": 1000,
+    "BaseBackoffSeconds": 5,
+    "MaxBackoffSeconds": 300,
+    "ProviderTimeoutSeconds": 10,
+    "RecipientRetentionDays": 30,
+    "RecordRetentionDays": 180
+  },
+
+  "RateLimits": {
+    "CreatePerMinute": 60,
+    "VerifyPerMinute": 300
+  }
+}

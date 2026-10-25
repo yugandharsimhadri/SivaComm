@@ -30,7 +30,7 @@ public sealed class Crypto
         if (bytes.Length < 32)
             throw new InvalidOperationException(
                 "Security:MasterKey must be at least 32 random bytes, base64-encoded. " +
-                "Generate one with: [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))");
+                "Generate one with: $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)");
         return bytes;
     }
 
