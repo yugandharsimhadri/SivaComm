@@ -497,7 +497,7 @@ application in the file, the file wins at the next restart.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Urls` | `http://localhost:6071` | where the service listens |
+| `Urls` | `http://localhost:6073` | where the service listens |
 | `Cors:AllowedOrigins` | `[]` | the dashboard's origin when it is not served by the API — production: `["https://sivacom.sivayaantechnologies.com"]` |
 | `DataProtection:KeysPath` | — | folder for the dashboard's login-cookie keys; set it, or every restart signs operators out |
 | `Logging:File:PathFormat` | — | daily log file, e.g. `C:\Server\sivacomapi\logs\sivacomm-{Date}.log`; a service has no console |
@@ -510,7 +510,7 @@ In short:
 
 ```json
 {
-  "Urls": "http://localhost:6071",
+  "Urls": "http://localhost:6073",
   "Database": { "Host": "localhost", "Name": "sivacomm", "Username": "sivacomm", "Password": "…" },
   "Security": { "MasterKey": "…" },
   "Admin":    { "Username": "ops", "Password": "…" },

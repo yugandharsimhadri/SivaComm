@@ -15,11 +15,21 @@ credentials-file: C:\Windows\System32\config\systemprofile\.cloudflared\REPLACE-
 
 # Cloudflare terminates TLS at its edge and hands the request over the tunnel.
 # The hop from cloudflared to the API is plain HTTP on loopback and never
-# leaves the VM — the API listens only on localhost:6071 (Urls in
+# leaves the VM — the API listens only on localhost:6073 (Urls in
 # appsettings.Production.json) and no Azure inbound port is opened for it.
+#
+# The service MUST be http://, not https:// - the API speaks plain HTTP on
+# this port, and https:// here (or "HTTPS" in the dashboard's route editor)
+# makes every request fail with Cloudflare 502. Visitors still get https:
+# Cloudflare provides it at the edge.
+#
+# Dashboard-managed tunnel (cloudflared runs with --token / --token-file, no
+# config.yml)? Set the same thing in Zero Trust -> Networks -> Tunnels -> the
+# tunnel -> Routes -> sivacomapi.sivayaantechnologies.com -> Edit ->
+# Service URL: http://127.0.0.1:6073
 ingress:
   - hostname: sivacomapi.sivayaantechnologies.com
-    service: http://127.0.0.1:6071
+    service: http://127.0.0.1:6073
     originRequest:
       connectTimeout: 30s
       httpHostHeader: sivacomapi.sivayaantechnologies.com

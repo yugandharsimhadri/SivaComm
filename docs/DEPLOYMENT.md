@@ -43,7 +43,7 @@ flowchart LR
         SC["SivaComApi service<br/>C:\Server\sivacomapi<br/>appsettings.Production.json"]
         HM["SivayaanHMSApi service<br/>(HMS_WEB)<br/>appsettings.Production.json"]
         CF[cloudflared tunnel]
-        HM -- "http://localhost:6071<br/>signed" --> SC
+        HM -- "http://localhost:6073<br/>signed" --> SC
         SC --- PG
         HM --- PG
         CF --> SC
@@ -170,7 +170,7 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
 
 ```jsonc
 {
-  "Urls": "http://localhost:6071",                       // where the service listens; the tunnel points here
+  "Urls": "http://localhost:6073",                       // where the service listens; the tunnel points here
 
   "Database": {
     "Host": "localhost", "Port": 5432,
@@ -263,7 +263,7 @@ Options: `-InstallDir D:\Server\sivacomapi`, `-ServiceName SivaComApi`.
 Expected ending:
 
 ```
-==> Ready: http://localhost:6071/health/ready
+==> Ready: http://localhost:6073/health/ready
 ```
 
 The API does not serve the dashboard: the dashboard is static files on
@@ -292,7 +292,7 @@ add a public hostname for SivaComm pointing at the `Urls` value:
 # cloudflared config.yml — add above the catch-all rule
 ingress:
   - hostname: sivacomapi.sivayaantechnologies.com
-    service: http://localhost:6071
+    service: http://localhost:6073
   # … existing HMS rules …
   - service: http_status:404
 ```
@@ -303,7 +303,7 @@ and restart cloudflared. Check from outside:
 steps, including a brand-new tunnel: DEPLOYMENT_AZURE.md §7.
 
 HMS_WEB on the same machine does **not** need the public name: it calls
-`http://localhost:6071` directly (step 9). Applications on other machines use
+`http://localhost:6073` directly (step 9). Applications on other machines use
 `https://sivacomapi.sivayaantechnologies.com`.
 
 ---
@@ -330,7 +330,7 @@ In HMS_WEB's `appsettings.Production.json` (beside its exe), add or edit:
 ```json
 "SivaComm": {
   "Enabled": true,
-  "BaseUrl": "http://localhost:6071",
+  "BaseUrl": "http://localhost:6073",
   "ClientId": "hms-web",
   "KeyId": "K1",
   "Secret": "S4",

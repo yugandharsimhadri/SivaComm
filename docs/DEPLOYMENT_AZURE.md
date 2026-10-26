@@ -7,7 +7,7 @@ config file; nothing is typed into the application.
 |---|---|---|
 | **Dashboard** | `https://sivacom.sivayaantechnologies.com` | Cloudflare Pages (static files) |
 | **API, public** | `https://sivacomapi.sivayaantechnologies.com` | Cloudflare Tunnel → the VM |
-| **API, on the VM** | `http://localhost:6071` | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` |
+| **API, on the VM** | `http://localhost:6073` | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` |
 | **Database** | `localhost:5432`, database `sivacomm`, role `sivacomm` | PostgreSQL on the VM |
 
 ```
@@ -18,9 +18,9 @@ config file; nothing is typed into the application.
  Meta webhook ──https──> sivacomapi.sivayaantechnologies.com  (Cloudflare edge, TLS)
                                                   │  tunnel — outbound from the VM, no open ports
                                                   v
- Azure VM:   cloudflared ──> http://localhost:6071  SivaComApi service ──> PostgreSQL localhost:5432
+ Azure VM:   cloudflared ──> http://localhost:6073  SivaComApi service ──> PostgreSQL localhost:5432
                                    ^
- HMS_WEB API ──signed calls────────┘   (http://localhost:6071 if HMS is on this VM,
+ HMS_WEB API ──signed calls────────┘   (http://localhost:6073 if HMS is on this VM,
                                         https://sivacomapi.… if it is elsewhere)
 ```
 
@@ -124,6 +124,31 @@ New-Item -ItemType Directory -Force C:\Server\sivacomapi, C:\Server\sivacomapi\l
 | `C:\Server\sivacomapi\logs` | daily log files | no |
 | `C:\Server\sivacomapi\keys` | dashboard login-cookie keys | no |
 | `C:\Server\sivacomapi-backups` | database dumps | no |
+
+**The port.** SivaCom listens on **6073** (`Urls` in the config). On this VM
+Windows reserves **6071** — together with 6041, 6051 and 6061, the other
+applications' ports — and a reserved port cannot be used at all (the API
+crashes with socket error 10013 and Cloudflare shows 502). Check the port is
+neither reserved nor taken before installing:
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp      # 6073 must not be inside any range
+Get-NetTCPConnection -LocalPort 6073 -State Listen -EA SilentlyContinue   # must print nothing (yet)
+```
+
+`Install-SivaComm.ps1` runs the same two checks and stops with the reason if
+either fails. If 6073 is taken, pick another port, put it in `Urls`, and use
+it in step 7's tunnel route and in HMS_WEB's `SivaComm:BaseUrl`.
+
+**No IIS site for SivaCom.** SivaCom runs as the Windows service
+`SivaComApi`, never under IIS. An IIS site bound to its port (an earlier
+attempt left one, `*:6071:sivacomapi…`) answers *"400 Bad Request – Invalid
+Hostname"* and blocks the service:
+
+```powershell
+Import-Module WebAdministration
+Get-WebBinding | ? bindingInformation -match ':6073:'     # must print nothing; else Remove-Website / Remove-WebBinding
+```
 
 ---
 
@@ -236,7 +261,7 @@ Change these values (everything else can stay as the template has it):
 
 | Key | Value |
 |---|---|
-| `Urls` | `http://localhost:6071` *(already set)* |
+| `Urls` | `http://localhost:6073` *(already set)* |
 | `Cors:AllowedOrigins` | `[ "https://sivacom.sivayaantechnologies.com" ]` *(already set — exactly this, no trailing slash)* |
 | `Database:Password` | **D1** |
 | `Security:MasterKey` | **S1** |
@@ -277,7 +302,7 @@ Same folder, same window:
 Applying 1: 20261024155431_Initial            ("Already current." if step 4 used full-schema.sql)
 ==> Creating service SivaComApi
 ==> Starting SivaComApi
-==> Ready: http://localhost:6071/health/ready
+==> Ready: http://localhost:6073/health/ready
 ```
 
 On a brand-new database the migration step also prints two red
@@ -294,7 +319,7 @@ application itself — a missing or development master key, or an invalid
 **Check on the VM, before any tunnel:**
 
 ```powershell
-Invoke-WebRequest http://localhost:6071/health/ready -UseBasicParsing | Select StatusCode, Content
+Invoke-WebRequest http://localhost:6073/health/ready -UseBasicParsing | Select StatusCode, Content
 Get-Content (Get-ChildItem C:\Server\sivacomapi\logs\*.log | Sort LastWriteTime | Select -Last 1).FullName -Tail 20
 ```
 
@@ -324,8 +349,8 @@ Test-Path C:\Windows\System32\config\systemprofile\.cloudflared\config.yml
 - found, and `False` → a dashboard-managed tunnel runs here: *Dashboard-managed tunnel*, step 3 onwards.
 
 **The one rule that matters:** the `sivacomapi` hostname must be served by a
-tunnel whose connector runs **on the same VM as SivaComApi**, with service
-**HTTP** `127.0.0.1:6071`, and must not also be listed on any other tunnel.
+tunnel whose connector runs **on the same VM as SivaComApi**, with Service URL
+**`http://127.0.0.1:6073`** (http, not https), and must not also be listed on any other tunnel.
 
 ### Dashboard-managed tunnel (recommended)
 
@@ -334,17 +359,27 @@ tunnel whose connector runs **on the same VM as SivaComApi**, with service
    Cloudflared**, name `sivacom-api`, environment **Windows**. Run the
    `cloudflared.exe service install <token>` command it shows, on this VM.
    The tunnel turns **Healthy**.
-3. That tunnel → **Public hostname → Add a public hostname**:
+3. That tunnel → **Routes → Add route → Published application** (older
+   dashboards: **Public hostname → Add a public hostname**):
 
    | Field | Value |
    |---|---|
    | Subdomain | `sivacomapi` |
    | Domain | `sivayaantechnologies.com` |
-   | Type | **HTTP** (not HTTPS) |
-   | URL | `127.0.0.1:6071` |
+   | Path | *(empty)* |
+   | Service URL | **`http://127.0.0.1:6073`** (older dashboards: Type **HTTP**, URL `127.0.0.1:6073`) |
+
+   > **http, not https.** The editor's example (`https://localhost:8080`)
+   > invites `https://localhost:6073` — that is exactly what made every
+   > request fail with 502 on the first deployment. SivaCom speaks plain
+   > HTTP on its port; Cloudflare already gives visitors https at its edge.
+   > Your other routes (hmsapi, hoapi, …) may well say `https://` — IIS
+   > answers https on their ports; SivaCom does not.
 
 4. Open **every other tunnel** (including HMS's `hoapi` one): none may list
-   `sivacomapi`. Delete it wherever else it appears.
+   `sivacomapi`. Delete it wherever else it appears. (On the production
+   tunnel `sivaserver` all eight API routes, `sivacomapi` included, share
+   one replica on `vm1` — which is correct.)
 
 ### If HMS_WEB's tunnel already runs on this VM, from a config file
 
@@ -355,7 +390,7 @@ tunnel whose connector runs **on the same VM as SivaComApi**, with service
 2. Add this rule to `ingress:`, **above** the last `- service: http_status:404` line:
    ```yaml
      - hostname: sivacomapi.sivayaantechnologies.com
-       service: http://127.0.0.1:6071
+       service: http://127.0.0.1:6073
        originRequest:
          connectTimeout: 30s
          httpHostHeader: sivacomapi.sivayaantechnologies.com
@@ -366,7 +401,7 @@ tunnel whose connector runs **on the same VM as SivaComApi**, with service
    ```
    (Run where `cloudflared tunnel login` was done; or in the Cloudflare
    dashboard: Zero Trust → Networks → Tunnels → the tunnel → Public hostnames
-   → Add: subdomain `sivacomapi`, service `http://localhost:6071`.)
+   → Add: subdomain `sivacomapi`, service `http://localhost:6073`.)
 4. Restart:
    ```powershell
    Restart-Service cloudflared
@@ -400,7 +435,7 @@ fails with *"The underlying connection was closed"*:
 
 `200 ready` is success. `530`/`1033`: the tunnel is not connected. `502`:
 the tunnel is up but its connector gets no answer — the public hostname's
-type is HTTPS instead of HTTP, its URL is not `127.0.0.1:6071`, the connector
+type is HTTPS instead of HTTP, its URL is not `127.0.0.1:6073`, the connector
 runs on a different machine from SivaComApi, or `sivacomapi` is still listed
 on another tunnel.
 
@@ -461,7 +496,7 @@ folder):
 ```json
 "SivaComm": {
   "Enabled": true,
-  "BaseUrl": "http://localhost:6071",
+  "BaseUrl": "http://localhost:6073",
   "ClientId": "hms-web",
   "KeyId": "K1",
   "Secret": "S4",
@@ -471,7 +506,7 @@ folder):
 
 | Key | Value |
 |---|---|
-| `BaseUrl` | `http://localhost:6071` when HMS_WEB's API runs on this VM; `https://sivacomapi.sivayaantechnologies.com` when it runs elsewhere |
+| `BaseUrl` | `http://localhost:6073` when HMS_WEB's API runs on this VM; `https://sivacomapi.sivayaantechnologies.com` when it runs elsewhere |
 | `ClientId` | `hms-web` — SivaComm `Applications[0].Code` |
 | `KeyId` / `Secret` | **K1** / **S4** — exactly as in SivaComm's file |
 
@@ -538,9 +573,12 @@ Meta token): edit `C:\Server\sivacomapi\appsettings.Production.json`, then
 | Installer: migration fails with `28P01` / password authentication | `Database:Password` ≠ D1, or role missing | step 4/5 |
 | Service stops right after start | read the newest file in `C:\Server\sivacomapi\logs` — the first error names the setting | — |
 | `https://sivacomapi…` → 530 / 1033 | tunnel not connected | `Get-Service cloudflared`; check `config.yml` |
-| `https://sivacomapi…` → 502 | the tunnel cannot reach SivaComApi: hostname type HTTPS instead of HTTP, URL not `127.0.0.1:6071`, connector on another machine, or `sivacomapi` also listed on another tunnel | step 7, "The one rule that matters" |
+| `https://sivacomapi…` → 502 | the tunnel cannot reach SivaComApi: hostname type HTTPS instead of HTTP, URL not `127.0.0.1:6073`, connector on another machine, or `sivacomapi` also listed on another tunnel | step 7, "The one rule that matters" |
 | `Invoke-WebRequest https://…` → *underlying connection was closed* | Windows PowerShell 5.1 using old TLS | `[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12` |
-| `localhost:6071` → *400 Invalid Hostname* | an IIS site is bound to 6071 | remove that site; SivaComApi runs as a service, not under IIS |
+| `localhost:<port>` → *400 Bad Request – Invalid Hostname* | an IIS site is bound to the port | `Get-WebBinding \| ? bindingInformation -match ':<port>:'`, then remove that site or binding; SivaComApi runs as a service, never under IIS |
+| Log: *Failed to bind … An attempt was made to access a socket in a way forbidden by its access permissions* (10013) | the port is reserved by Windows | `netsh interface ipv4 show excludedportrange protocol=tcp`; move to a port outside every range (`Urls`, tunnel route, HMS `BaseUrl`) |
+| Installer: *Port … is reserved by Windows* / *already used by …* | the same two causes, caught before installing | as the two rows above |
+| Dashboard: *CORS … No 'Access-Control-Allow-Origin' header* on login | almost always the API returning 502 (Cloudflare's error page has no CORS headers), not CORS itself | fix the 502 first; `/health/ready` must answer `ready` |
 | Dashboard: browser console shows *CORS* / *blocked by CORS policy* | `Cors:AllowedOrigins` ≠ the dashboard origin | exactly `https://sivacom.sivayaantechnologies.com`, restart SivaComApi |
 | Dashboard: sign-in returns but you are still on the sign-in page | using the `*.pages.dev` address, or the API not on HTTPS | use the custom domain; API through the tunnel |
 | Dashboard: everything fails with network errors | bundle built with the wrong `VITE_API_URL` | check `dashboard\.env.production`, rebuild, redeploy |
@@ -553,7 +591,7 @@ Meta token): edit `C:\Server\sivacomapi\appsettings.Production.json`, then
 
 | Value | SivaComm `C:\Server\sivacomapi\appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Elsewhere |
 |---|---|---|---|
-| API port | `Urls`: `http://localhost:6071` | `SivaComm:BaseUrl` (same VM) | tunnel `config.yml` service |
+| API port | `Urls`: `http://localhost:6073` | `SivaComm:BaseUrl` (same VM) | tunnel `config.yml` service |
 | API public name | — | `SivaComm:BaseUrl` (other machine) | tunnel hostname; Meta callback URL; `dashboard\.env.production` |
 | Dashboard origin | `Cors:AllowedOrigins` | — | Pages custom domain |
 | D1 database password | `Database:Password` | — | PostgreSQL role |

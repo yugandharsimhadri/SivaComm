@@ -7,7 +7,13 @@
     "Guide: docs/DEPLOYMENT.md. Every key is explained in docs/GUIDE.md section 9."
   ],
 
-  "Urls": "http://localhost:6071",
+  "//Urls": [
+    "Where the API listens, on this machine only. Plain http: Cloudflare provides https to visitors.",
+    "6073 because 6071 is reserved by Windows on the production VM. The installer checks the port is neither",
+    "reserved (netsh interface ipv4 show excludedportrange protocol=tcp) nor used by IIS or another program.",
+    "If you change it, change the tunnel route to http://127.0.0.1:<port> (http, NOT https) and HMS_WEB's SivaComm:BaseUrl."
+  ],
+  "Urls": "http://localhost:6073",
 
   "Cors": {
     "//": "Where the dashboard is hosted (Cloudflare Pages). Exactly the origin, no trailing slash.",

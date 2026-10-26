@@ -82,6 +82,35 @@ foreach ($dir in @($settings.DataProtection.KeysPath, (Split-Path $settings.Logg
     if ($dir) { New-Item -ItemType Directory -Force $dir | Out-Null }
 }
 
+# ----------------------------------------------------------- 1b. the port
+
+# The two ways the API's port has been unusable on a real server, both of
+# which otherwise surface only as a crash in the log and a 502 at Cloudflare:
+#   * Windows has reserved it (netsh excludedportrange) - binding fails with
+#     socket error 10013, "access forbidden";
+#   * something else listens on it, typically an IIS site (process "System").
+$port = ([uri](($settings.Urls -split ';')[0])).Port
+Say "Checking port $port (Urls in the config file)"
+
+$reserved = netsh interface ipv4 show excludedportrange protocol=tcp |
+    Select-String '^\s*(\d+)\s+(\d+)' |
+    ForEach-Object { ,@([int]$_.Matches[0].Groups[1].Value, [int]$_.Matches[0].Groups[2].Value) }
+$hit = $reserved | Where-Object { $port -ge $_[0] -and $port -le $_[1] } | Select-Object -First 1
+if ($hit) {
+    Die ("Port $port is reserved by Windows (excluded range $($hit[0])-$($hit[1])), so the API cannot listen on it. " +
+         "Choose a free port, set it in Urls in $Config, point the tunnel route at http://127.0.0.1:<port>, and re-run. " +
+         "Reserved ranges: netsh interface ipv4 show excludedportrange protocol=tcp")
+}
+
+$others = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+    ForEach-Object { (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName } |
+    Where-Object { $_ -and $_ -ne 'SivaComm.Api' } | Select-Object -Unique
+if ($others) {
+    Die ("Port $port is already used by: $($others -join ', '). 'System' means IIS / HTTP.sys - remove the IIS site or binding on " +
+         "this port (Get-WebBinding | ? bindingInformation -match ':$($port):'), or choose another port in Urls. SivaCom runs as a " +
+         "Windows service, never under IIS.")
+}
+
 # -------------------------------------------------------------------- 2. copy
 
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
