@@ -103,7 +103,13 @@
     "File": {
       "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
       "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log",
-      "RetainedFileCountLimit": 31
+      "RetainedFileCountLimit": 31,
+      "LogLevel": {
+        "//": "The file logger applies only these levels, not Logging:LogLevel above. Without them every database command (the worker polls each second) is written to the file.",
+        "Default": "Information",
+        "Microsoft.AspNetCore": "Warning",
+        "Microsoft.EntityFrameworkCore": "Warning"
+      }
     }
   },
 
