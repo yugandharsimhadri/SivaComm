@@ -37,6 +37,7 @@ docs/
 | Call SivaComm from an application | [docs/API.md](docs/API.md) — endpoints, signature, statuses |
 | Understand the OTP and grant rules | [docs/SECURITY.md](docs/SECURITY.md) |
 | Connect a real WhatsApp number | [docs/WHATSAPP_SETUP.md](docs/WHATSAPP_SETUP.md) |
+| **Test messaging from the server with your own template** (SivaCommTest.exe) | [docs/TESTING.md](docs/TESTING.md) |
 | See the design and what is still open | [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) |
 
 ## Status

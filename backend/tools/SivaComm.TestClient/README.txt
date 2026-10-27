@@ -1,6 +1,9 @@
 SivaCommTest - test SivaComm messaging from the server
 =======================================================
 
+Full step-by-step guide, including sending your own approved template:
+docs/TESTING.md in the SivaComm repository.
+
 A small program that acts like HMS_WEB: it signs requests with an
 application's key and drives the real API. Needs the .NET 10 runtime, which
 the VM already has for SivaComm itself.
