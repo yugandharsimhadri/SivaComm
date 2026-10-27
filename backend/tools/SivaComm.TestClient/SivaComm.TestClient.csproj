@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SivaCommTest.exe: a stand-in consuming application for testing a SivaComm
+    server end to end (signed requests, WhatsApp OTP, welcome message). No
+    dependency on the API or Data projects, so it shows exactly what an
+    application has to implement. Built by deploy/New-TestClient.ps1.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>SivaCommTest</AssemblyName>
+    <RootNamespace>SivaComm.TestClient</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="sivacomm-test.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
