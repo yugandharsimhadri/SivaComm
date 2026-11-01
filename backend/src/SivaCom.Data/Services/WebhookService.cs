@@ -119,6 +119,16 @@ public sealed class WebhookService(IDbContextFactory<CommDbContext> factory, Tim
         {
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
+
+            if (message is null)
+                logger.LogInformation("WhatsApp reported {Status} for {ProviderMessageId:l}, not yet matched to a message; applied once its send is recorded.",
+                    u.Status, u.ProviderMessageId);
+            else if (u.Status == MessageStatus.Failed)
+                logger.LogWarning("Message {MessageId} ({Purpose}): WhatsApp reported FAILED, error code {ErrorCode:l}. Now {State}.",
+                    message.Id, message.Purpose, u.ErrorCode ?? "(none)", message.Status);
+            else
+                logger.LogInformation("Message {MessageId} ({Purpose}): WhatsApp reported {Status}. Now {State}.",
+                    message.Id, message.Purpose, u.Status, message.Status);
             return true;
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })

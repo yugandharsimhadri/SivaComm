@@ -51,6 +51,8 @@ public interface IMessageProvider
 /// </summary>
 public sealed class LoggingMessageProvider(ILogger<LoggingMessageProvider> logger, IHostEnvironment environment) : IMessageProvider
 {
+    public const string NotConfigured = "no messaging provider configured (WhatsApp section empty, or the service not restarted after filling it)";
+
     public string Name => "log";
     public MessageChannel Channel => MessageChannel.WhatsApp;
 
@@ -60,16 +62,18 @@ public sealed class LoggingMessageProvider(ILogger<LoggingMessageProvider> logge
         {
             logger.LogWarning(
                 "DEVELOPMENT ONLY — no provider configured, message NOT sent.\n  Message : {MessageId}\n  " +
-                "Purpose : {Purpose}\n  Template: {Template}\n  Params  : {Parameters}",
+                "Purpose : {Purpose}\n  Template: {Template:l}\n  Params  : {Parameters}",
                 message.MessageId, message.Purpose, message.TemplateName, string.Join(" | ", message.Parameters));
-        }
-        else
-        {
-            logger.LogError(
-                "No messaging provider is configured; message {MessageId} ({Purpose}) was dropped.",
-                message.MessageId, message.Purpose);
+            return Task.FromResult(ProviderResult.Accepted($"log-{message.MessageId:N}"));
         }
 
-        return Task.FromResult(ProviderResult.Accepted($"log-{message.MessageId:N}"));
+        // Outside Development a dropped message is a failure, and must look
+        // like one: FAILED with the reason, in the dashboard and to the
+        // application — not SUBMITTED, which reads as "on its way".
+        logger.LogError(
+            "No messaging provider is configured; message {MessageId} ({Purpose}) was NOT sent. " +
+            "Fill AccessToken and PhoneNumberId in the WhatsApp section and restart the service.",
+            message.MessageId, message.Purpose);
+        return Task.FromResult(ProviderResult.Permanent(NotConfigured));
     }
 }

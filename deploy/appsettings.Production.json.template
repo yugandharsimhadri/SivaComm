@@ -101,20 +101,27 @@
   },
 
   "Logging": {
+    "//": [
+      "Two daily files in the logs folder:",
+      "  sivacom-<date>.log   the main log, at the levels below. 'Error' is fine for a quiet server.",
+      "  messages-<date>.log  ALWAYS the full story of every OTP and message, whatever the levels below:",
+      "                       the request, each send attempt, Meta's answer (with its error code), retries,",
+      "                       delivery statuses, and a startup block saying whether WhatsApp is ON.",
+      "                       Read this one first when a message did not arrive. No codes or numbers in it.",
+      "Messages:PathFormat moves the messages log; by default it sits beside the main log."
+    ],
     "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning",
-      "Microsoft.EntityFrameworkCore": "Warning"
+      "Default": "Warning",
+      "SivaCom": "Information"
     },
     "File": {
       "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
       "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log",
       "RetainedFileCountLimit": 31,
       "LogLevel": {
-        "//": "The file logger applies only these levels, not Logging:LogLevel above. Without them every database command (the worker polls each second) is written to the file.",
-        "Default": "Information",
-        "Microsoft.AspNetCore": "Warning",
-        "Microsoft.EntityFrameworkCore": "Warning"
+        "//": "The file logger applies only these levels, not Logging:LogLevel above. Warning hides the framework's per-request lines; SivaCom keeps its own.",
+        "Default": "Warning",
+        "SivaCom": "Information"
       }
     }
   },

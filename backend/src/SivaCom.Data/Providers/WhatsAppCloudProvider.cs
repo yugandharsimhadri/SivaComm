@@ -99,8 +99,12 @@ public sealed class WhatsAppCloudProvider(
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            logger.LogWarning("Could not reach WhatsApp for message {MessageId}: {Error}", message.MessageId, ex.GetType().Name);
-            return ProviderResult.Transient(ex is TaskCanceledException ? "timeout" : "network error");
+            // The socket or DNS error is what tells an operator why ("No such
+            // host is known", "connection refused", a proxy); it names hosts,
+            // never the recipient.
+            var reason = ex is TaskCanceledException ? "timeout" : $"network error: {ex.Message}";
+            logger.LogDebug("Could not reach WhatsApp for message {MessageId}: {Error}", message.MessageId, reason);
+            return ProviderResult.Transient(reason);
         }
 
         using (response)
@@ -114,13 +118,14 @@ public sealed class WhatsAppCloudProvider(
                     return ProviderResult.Permanent("accepted without a message id");
                 }
 
-                logger.LogInformation("WhatsApp accepted message {MessageId} as {ProviderId}.", message.MessageId, id);
+                // The outbox logs the outcome of every attempt (OutboxProcessor).
+                logger.LogDebug("WhatsApp accepted message {MessageId} as {ProviderId}.", message.MessageId, id);
                 return ProviderResult.Accepted(id);
             }
 
             var error = ReadError(body);
-            var summary = $"{(int)response.StatusCode} {error}";
-            logger.LogError("WhatsApp refused message {MessageId}: {Error}", message.MessageId, summary);
+            var summary = $"WhatsApp {(int)response.StatusCode} {error}";
+            logger.LogDebug("WhatsApp refused message {MessageId}: {Error}", message.MessageId, summary);
 
             // 429 and 5xx can succeed on a later attempt. Everything else —
             // a missing template, an expired token, an unknown number — will

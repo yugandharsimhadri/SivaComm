@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SivaCom.Data.Services;
 
@@ -115,6 +116,31 @@ public static class ApiStatus
 
         if (retryAfter is { } wait) http.Response.Headers.RetryAfter = ((int)Math.Ceiling(wait.TotalSeconds)).ToString();
 
-        return new ObjectResult(body) { StatusCode = outcome == successOverride ? 200 : Http(outcome) };
+        var code = outcome == successOverride ? 200 : Http(outcome);
+        LogOutcome(http, body, code);
+        return new ObjectResult(body) { StatusCode = code };
+    }
+
+    /// <summary>
+    /// One line per application request in the messages log: who asked for
+    /// what and what they were told, with the ids to follow it further (the
+    /// message id appears again when the outbox sends it). Never the OTP, the
+    /// grant or the phone number.
+    /// </summary>
+    private static void LogOutcome(HttpContext http, ApiResponse body, int code)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("SivaCom.Api.Requests");
+        var level = code >= 500 ? LogLevel.Error : body.Success ? LogLevel.Information : LogLevel.Warning;
+        if (!logger.IsEnabled(level)) return;
+
+        var ids = string.Concat(
+            body.ChallengeId is { } c ? $" challenge {c}" : "",
+            body.MessageId is { } m ? $" message {m}" : "",
+            body.RemainingAttempts is { } r ? $", {r} attempt(s) left" : "",
+            body.RetryAfterSeconds is { } s ? $", retry after {s}s" : "");
+
+        logger.Log(level, "{Application:l} {Method:l} {Path:l} -> {HttpStatus} {Status:l}{Ids:l}{Message:l} [correlation {CorrelationId:l}]",
+            http.User.FindFirstValue(Auth.AppClaims.ApplicationCode) ?? "(unknown)", http.Request.Method, http.Request.Path.Value,
+            code, body.Status, ids, body.Message is { } msg && !body.Success ? " - " + msg : "", body.CorrelationId);
     }
 }

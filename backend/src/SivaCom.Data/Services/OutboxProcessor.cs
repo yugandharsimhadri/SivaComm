@@ -91,6 +91,8 @@ public sealed class OutboxProcessor(
             var challenge = await db.OtpChallenges.AsNoTracking().FirstOrDefaultAsync(c => c.Id == challengeId, ct);
             if (challenge is null || challenge.Status != ChallengeStatus.Pending || challenge.ExpiresAt <= now)
             {
+                logger.LogInformation("Message {MessageId} ({Purpose}) not sent: its OTP challenge {ChallengeId} ended first ({State}).",
+                    message.Id, message.Purpose, challengeId, challenge is null ? "missing" : challenge.ExpiresAt <= now ? "expired" : challenge.Status);
                 Finish(message, MessageStatus.Expired, now, "challenge ended before sending");
                 await db.SaveChangesAsync(ct);
                 return;
@@ -113,6 +115,14 @@ public sealed class OutboxProcessor(
             await db.SaveChangesAsync(ct);
             return;
         }
+
+        // The messages log tells each message's story in these lines: this
+        // one, then exactly one of accepted / retrying / FAILED below.
+        logger.LogInformation(
+            "Sending message {MessageId} ({Purpose}, template {Template:l}/{Language:l}, {ParameterCount} parameter(s)) to {Recipient:l} " +
+            "via {Provider:l}, attempt {Attempt} of {MaxAttempts}.",
+            message.Id, message.Purpose, message.TemplateName, message.LanguageCode, outbound.Parameters.Count,
+            message.RecipientMasked?.Replace('•', '*'), provider.Name, message.Attempts, _options.MaxAttempts); // ASCII: logs are read in Windows PowerShell
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(_options.ProviderTimeoutSeconds));
@@ -139,6 +149,9 @@ public sealed class OutboxProcessor(
                 message.LastError = null;
                 message.UpdatedAt = now;
                 await ApplyEarlyEventsAsync(db, message, now, ct);
+                logger.LogInformation(
+                    "Message {MessageId} accepted by {Provider:l} as {ProviderMessageId:l}: SUBMITTED. Delivery is reported by the webhook.",
+                    message.Id, provider.Name, result.ProviderMessageId);
                 break;
 
             case ProviderResultKind.Transient when message.Attempts < _options.MaxAttempts:
@@ -146,10 +159,15 @@ public sealed class OutboxProcessor(
                 message.LockedUntil = null;
                 message.LastError = Trim(result.Error);
                 message.UpdatedAt = now;
+                logger.LogWarning(
+                    "Message {MessageId} attempt {Attempt} of {MaxAttempts} failed: {Error:l}. Retrying at {RetryAtUtc:HH:mm:ss} UTC.",
+                    message.Id, message.Attempts, _options.MaxAttempts, result.Error, message.NextAttemptAt);
                 break;
 
             default:
                 Finish(message, MessageStatus.Failed, now, result.Error);
+                logger.LogError("Message {MessageId} ({Purpose}) FAILED on attempt {Attempt}: {Error:l}",
+                    message.Id, message.Purpose, message.Attempts, result.Error);
                 break;
         }
 

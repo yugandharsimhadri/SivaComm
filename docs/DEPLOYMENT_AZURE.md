@@ -666,6 +666,31 @@ afterwards; the old installer does not know them.)
 
 ## 13. When something is wrong
 
+**A message did not arrive: read the messages log first.** It is
+`C:\Server\sivacomapi\logs\messages-<date>.log` (beside the main log), always
+written in full whatever the log levels, with no codes or phone numbers in it:
+
+```powershell
+Get-ChildItem C:\Server\sivacomapi\logs\messages-*.log | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 40
+```
+
+| Line in the messages log | Meaning |
+|---|---|
+| `SivaCom started … WhatsApp : OFF - … EVERY MESSAGE WILL FAIL` | the WhatsApp section is empty in the file this service read (the block names the file and when it was saved); fill it, restart |
+| `hms-web POST /api/v1/otp/challenges -> 202 QUEUED challenge … message …` | the application asked and SivaCom accepted; follow the message id |
+| `Unsigned request … old X-SivaComm-* header names` | the application is a build from before the rename |
+| `Signed request … rejected (401): BadSignature …` (or UnknownClient, StaleTimestamp) | the line says which setting differs |
+| `Sending message … template …/… to 91******4929 via whatsapp-cloud, attempt 1 of 5` | the worker is sending it now |
+| `… accepted by whatsapp-cloud as wamid… : SUBMITTED` | Meta took it; delivery follows from the webhook |
+| `… FAILED on attempt 1: WhatsApp 400 (#132001) …` | Meta refused it; the code is in docs/TESTING.md §9 |
+| `… attempt 2 of 5 failed: network error: … Retrying at …` | the VM could not reach Meta; it retries |
+| `… WhatsApp reported DELIVERED / READ / FAILED, error code …` | the webhook's report |
+| `WhatsApp webhook rejected: …AppSecret…` / `Meta webhook verification refused: …` | webhook settings; the line says which |
+| no line at all for the request | the application never reached SivaCom: its own messages log (HMS: `logs\messages-<date>.log` beside HMS) says why |
+
+The application side keeps its own messages log; every SivaCom call in it
+ends with `[correlation …]`, the same id as on SivaCom's line for that request.
+
 | Symptom | Cause | Fix |
 |---|---|---|
 | Installer: *ASP.NET Core 10 runtime is not installed* | runtime missing | step 3 |

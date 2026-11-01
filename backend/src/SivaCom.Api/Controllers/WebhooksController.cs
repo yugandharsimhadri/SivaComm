@@ -27,8 +27,15 @@ public sealed class WebhooksController(WebhookService webhooks, IOptions<WhatsAp
         var expected = options.Value.WebhookVerifyToken;
         if (mode == "subscribe" && !string.IsNullOrEmpty(expected) && token is not null &&
             CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes(expected)))
+        {
+            logger.LogInformation("Meta webhook verification succeeded: Meta will now send delivery statuses here.");
             return Content(challenge ?? "", "text/plain");
+        }
 
+        logger.LogWarning("Meta webhook verification refused: {Reason:l}.",
+            string.IsNullOrEmpty(expected) ? "WhatsApp:WebhookVerifyToken is empty in the config"
+            : mode != "subscribe" ? $"hub.mode was '{mode}', not 'subscribe'"
+            : "the verify token typed into Meta does not match WhatsApp:WebhookVerifyToken");
         return StatusCode(StatusCodes.Status403Forbidden);
     }
 
@@ -42,7 +49,9 @@ public sealed class WebhooksController(WebhookService webhooks, IOptions<WhatsAp
 
         if (!WebhookService.SignatureIsValid(body, Request.Headers["X-Hub-Signature-256"], options.Value.AppSecret))
         {
-            logger.LogWarning("WhatsApp webhook with a missing or invalid signature was rejected.");
+            logger.LogWarning("WhatsApp webhook rejected: {Reason:l}. Delivery statuses are not being recorded.",
+                string.IsNullOrEmpty(options.Value.AppSecret) ? "WhatsApp:AppSecret is empty in the config"
+                : "its signature does not match WhatsApp:AppSecret (wrong app secret, or it was reset in Meta)");
             return Unauthorized();
         }
 

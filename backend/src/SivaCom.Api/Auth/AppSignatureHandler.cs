@@ -40,7 +40,17 @@ public sealed class AppSignatureHandler(
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var headers = Request.Headers;
-        if (!headers.ContainsKey(RequestSigning.SignatureHeader)) return AuthenticateResult.NoResult();
+        if (!headers.ContainsKey(RequestSigning.SignatureHeader))
+        {
+            // Only application endpoints use this scheme, so an unsigned call
+            // here is a misconfigured caller. The usual one: an application
+            // built before the rename, still sending X-SivaComm-* headers.
+            var old = headers.Keys.Any(k => k.StartsWith("X-SivaComm-", StringComparison.OrdinalIgnoreCase));
+            Logger.LogWarning("Unsigned request to {Path:l} refused (401): {Reason:l}.", Request.Path.Value,
+                old ? "it uses the old X-SivaComm-* header names; the calling application is a build from before the SivaCom rename and must be updated"
+                    : $"no {RequestSigning.SignatureHeader} header");
+            return AuthenticateResult.NoResult();
+        }
 
         if (Request.ContentLength > MaxBody) return AuthenticateResult.Fail("Body too large.");
 
@@ -76,7 +86,16 @@ public sealed class AppSignatureHandler(
             });
             await db.SaveChangesAsync(Context.RequestAborted);
 
-            Logger.LogWarning("Signed request rejected: {Failure} for claimed client {Client}.", failure, claimed);
+            Logger.LogWarning("Signed request to {Path:l} rejected (401): {Failure} for client {Client:l}, key {KeyId:l} - {Hint:l}",
+                Request.Path.Value, failure, claimed, signed.KeyId is { Length: <= 60 } k ? k : "?", failure switch
+                {
+                    AuthFailure.MissingHeaders => "a signing header is missing or the nonce is not 16-64 characters.",
+                    AuthFailure.UnknownClient => "no enabled application with that ClientId has that KeyId (or the key is revoked). Compare the application's ClientId/KeyId with Applications in SivaCom's config.",
+                    AuthFailure.StaleTimestamp => "the caller's clock differs from this server's by more than Security:ClockSkewSeconds.",
+                    AuthFailure.BadSignature => "the Secret differs between the application's config and SivaCom's Applications entry.",
+                    AuthFailure.Replayed => "this exact request (nonce) was already used.",
+                    _ => "",
+                });
             return AuthenticateResult.Fail(failure.ToString());
         }
 

@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using SivaCom.Api;
 using SivaCom.Api.Auth;
 using SivaCom.Api.Controllers;
+using SivaCom.Api.Infrastructure;
 using SivaCom.Data;
 using SivaCom.Data.Providers;
 using SivaCom.Data.Security;
@@ -40,6 +41,9 @@ builder.Host.UseWindowsService(o => o.ServiceName = "SivaComApi");
 // A service has no console, so without this its logs go nowhere useful.
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Logging:File:PathFormat"]))
     builder.Logging.AddFile(builder.Configuration.GetSection("Logging:File"));
+
+// messages-{Date}.log beside it: every OTP and message, step by step.
+StartupReport.AddMessagesLog(builder.Logging, builder.Configuration);
 
 // ── Configuration, checked up front ──────────────────────────────────────
 var config = builder.Configuration;
@@ -216,20 +220,14 @@ if (registerAt >= 0)
 if (configuredApps.Count > 0)
 {
     foreach (var line in await app.Services.GetRequiredService<ConfiguredApplicationsSync>().ApplyAsync(configuredApps, default))
-        app.Logger.LogInformation("Application from configuration — {Summary}", line);
+        app.Logger.LogInformation("Application from configuration: {Summary:l}", line);
 }
 
 if (await app.Services.GetRequiredService<AdminService>()
         .EnsureBootstrapAdminAsync(config["Admin:Username"], config["Admin:Password"], default))
     app.Logger.LogWarning("Created the first dashboard admin '{User}' from configuration.", config["Admin:Username"]);
 
-if (!whatsApp.IsConfigured)
-{
-    if (app.Environment.IsDevelopment())
-        app.Logger.LogWarning("No WhatsApp provider is configured. Messages are logged instead of sent, with their codes, because this is Development.");
-    else
-        app.Logger.LogWarning("No WhatsApp provider is configured. Messages are NOT sent and their content is not logged. Fill the WhatsApp section — see docs/WHATSAPP_SETUP.md.");
-}
+StartupReport.Write(app, whatsApp, database);
 
 // ── Pipeline ─────────────────────────────────────────────────────────────
 var forwarded = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor };
