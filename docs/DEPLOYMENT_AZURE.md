@@ -688,6 +688,11 @@ Get-ChildItem C:\Server\sivacomapi\logs\messages-*.log | Sort-Object LastWriteTi
 | `WhatsApp webhook rejected: …AppSecret…` / `Meta webhook verification refused: …` | webhook settings; the line says which |
 | no line at all for the request | the application never reached SivaCom: its own messages log (HMS: `logs\messages-<date>.log` beside HMS) says why |
 
+To switch a log file off (or back on), set `Logging:Messages:Enabled` or
+`Logging:File:Enabled` to `false` / `true` in the config file and restart
+SivaComApi. Both are on by default; the startup block shows `OFF (…)` for a
+file that is switched off.
+
 The application side keeps its own messages log; every SivaCom call in it
 ends with `[correlation …]`, the same id as on SivaCom's line for that request.
 

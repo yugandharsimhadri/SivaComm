@@ -108,14 +108,19 @@
       "                       the request, each send attempt, Meta's answer (with its error code), retries,",
       "                       delivery statuses, and a startup block saying whether WhatsApp is ON.",
       "                       Read this one first when a message did not arrive. No codes or numbers in it.",
-      "Messages:PathFormat moves the messages log; by default it sits beside the main log."
+      "Messages:PathFormat moves the messages log; by default it sits beside the main log.",
+      "On/off: File:Enabled and Messages:Enabled (true by default). false = that file is not written; restart to apply."
     ],
     "LogLevel": {
       "Default": "Warning",
       "SivaCom": "Information"
     },
+    "Messages": {
+      "Enabled": true
+    },
     "File": {
       "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
+      "Enabled": true,
       "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log",
       "RetainedFileCountLimit": 31,
       "LogLevel": {

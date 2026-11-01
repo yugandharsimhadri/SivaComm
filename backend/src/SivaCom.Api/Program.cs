@@ -37,13 +37,11 @@ if (!builder.Configuration.GetValue<bool>("IgnoreLocalSettings"))
 // the service manager. A no-op when run from a console.
 builder.Host.UseWindowsService(o => o.ServiceName = "SivaComApi");
 
-// Logging:File:PathFormat in the config file, e.g. "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log".
-// A service has no console, so without this its logs go nowhere useful.
-if (!string.IsNullOrWhiteSpace(builder.Configuration["Logging:File:PathFormat"]))
-    builder.Logging.AddFile(builder.Configuration.GetSection("Logging:File"));
-
-// messages-{Date}.log beside it: every OTP and message, step by step.
-StartupReport.AddMessagesLog(builder.Logging, builder.Configuration);
+// Log files. A service has no console, so without them its logs go nowhere:
+//   main log      Logging:File:PathFormat, e.g. "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log"
+//   messages log  messages-{Date}.log beside it: every OTP and message, step by step
+// Each switched by Logging:File:Enabled / Logging:Messages:Enabled (both on by default).
+StartupReport.AddFileLogs(builder.Logging, builder.Configuration);
 
 // ── Configuration, checked up front ──────────────────────────────────────
 var config = builder.Configuration;

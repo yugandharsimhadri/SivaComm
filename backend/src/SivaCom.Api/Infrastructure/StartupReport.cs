@@ -23,11 +23,18 @@ public static class StartupReport
     /// hides a message's story.
     ///
     /// Logging:Messages:PathFormat moves it; by default it sits beside the
-    /// main log as messages-{Date}.log. No main log (development, console)
-    /// means no messages log either: the console already shows everything.
+    /// main log as messages-{Date}.log. No main log path (development,
+    /// console) means no messages log either: the console shows everything.
+    ///
+    /// Each file has its own switch, both on by default:
+    /// Logging:File:Enabled and Logging:Messages:Enabled. Off means the file
+    /// is not written at all; the paths stay in the config for turning it
+    /// back on with a restart.
     /// </summary>
     public static string? MessagesLogPath(IConfiguration config)
     {
+        if (!config.GetValue("Logging:Messages:Enabled", true)) return null;
+
         var explicitPath = config["Logging:Messages:PathFormat"];
         if (!string.IsNullOrWhiteSpace(explicitPath)) return explicitPath;
 
@@ -38,8 +45,20 @@ public static class StartupReport
         return string.IsNullOrEmpty(folder) ? "messages-{Date}.log" : Path.Combine(folder, "messages-{Date}.log");
     }
 
-    public static void AddMessagesLog(ILoggingBuilder logging, IConfiguration config)
+    /// <summary>Logging:File:PathFormat, unless Logging:File:Enabled is false.</summary>
+    public static string? MainLogPath(IConfiguration config) =>
+        config.GetValue("Logging:File:Enabled", true) && !string.IsNullOrWhiteSpace(config["Logging:File:PathFormat"])
+            ? config["Logging:File:PathFormat"]
+            : null;
+
+    private static string Describe(string? path, IConfiguration config, string section) =>
+        path ?? (config.GetValue($"Logging:{section}:Enabled", true) ? "(none: console only)" : $"OFF (Logging:{section}:Enabled = false)");
+
+    public static void AddFileLogs(ILoggingBuilder logging, IConfiguration config)
     {
+        if (MainLogPath(config) is not null)
+            logging.AddFile(config.GetSection("Logging:File"));
+
         var path = MessagesLogPath(config);
         if (path is null) return;
 
@@ -97,8 +116,8 @@ public static class StartupReport
             string.IsNullOrWhiteSpace(whatsApp.AppSecret) ? "EMPTY (every delivery status will be refused)" : "set",
             string.IsNullOrWhiteSpace(whatsApp.WebhookVerifyToken) ? "EMPTY (Meta cannot verify the webhook)" : "set",
             config.GetValue("Worker:Enabled", true) ? "on" : "OFF (Worker:Enabled = false): queued messages are never sent",
-            config["Logging:File:PathFormat"] ?? "(none: console only)",
-            MessagesLogPath(config) ?? "(none: console only)");
+            Describe(MainLogPath(config), config, "File"),
+            Describe(MessagesLogPath(config), config, "Messages"));
 
         // Also as errors and warnings of their own, so they reach the main
         // log even when it is set to errors only.
