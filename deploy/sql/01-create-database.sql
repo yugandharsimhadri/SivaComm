@@ -1,4 +1,4 @@
--- SivaComm: the one-time server setup — the application's role, its
+-- SivaCom: the one-time server setup — the application's role, its
 -- database, its schema and every privilege it needs. Run as the postgres
 -- superuser:
 --
@@ -9,14 +9,14 @@
 --   app_password  the role's password — REQUIRED for a server. The same value
 --                 goes into Database:Password in appsettings.Production.json.
 --   app_user      the login the application signs in as.   default sivacomm
---   db_name       the database it owns.                     default sivacomm
+--   db_name       the database it owns.                     default sivacom
 --   developer     set to anything for a developer machine: grants CREATEDB
 --                 (the tests make a throwaway database each) and allows the
 --                 password to default to sivacomm-dev. A server role never
 --                 gets CREATEDB.
 --
 -- After this the database is empty. The tables come from either
---   * the installer (Install-SivaComm.ps1 runs SivaComm.Api.exe --migrate), or
+--   * the installer (Install-SivaCom.ps1 runs SivaCom.Api.exe --migrate), or
 --   * full-schema.sql / migrate.sql in the same folder, for a DBA who wants to
 --     read and run the SQL themselves.
 -- Both can be used, in either order: each skips what is already applied.
@@ -43,7 +43,7 @@
 
 \if :{?db_name}
 \else
-    \set db_name 'sivacomm'
+    \set db_name 'sivacom'
 \endif
 
 \if :{?app_password}
@@ -94,7 +94,7 @@ SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'db_name')
 
 \connect :db_name
 
--- Every SivaComm table lives in schema comm. Created here, owned by the
+-- Every SivaCom table lives in schema comm. Created here, owned by the
 -- application role, so the migrations can create tables in it.
 SELECT format('CREATE SCHEMA IF NOT EXISTS comm AUTHORIZATION %I', :'app_user')
 \gexec
@@ -108,5 +108,5 @@ SELECT format('GRANT ALL ON SCHEMA comm TO %I', :'app_user')
 -- END-OF-SETUP  (deploy\New-SchemaScripts.ps1 cuts here to build full-schema.sql)
 
 \echo
-\echo Done. Next: Database:Password in appsettings.Production.json, then Install-SivaComm.ps1
+\echo Done. Next: Database:Password in appsettings.Production.json, then Install-SivaCom.ps1
 \echo (it creates the tables), or run full-schema.sql to create them now.

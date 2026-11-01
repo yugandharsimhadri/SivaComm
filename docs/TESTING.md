@@ -1,9 +1,9 @@
-# Testing messages from the server with SivaCommTest.exe
+# Testing messages from the server with SivaComTest.exe
 
 Step by step: send one of **your own approved WhatsApp templates** (the example
 uses `test_account_creation`) from the Azure VM, and see it arrive on a phone.
 
-`SivaCommTest.exe` plays the part of an application such as HMS_WEB. It signs
+`SivaComTest.exe` plays the part of an application such as HMS_WEB. It signs
 requests with the application's key and calls the real API, so a successful
 test shows the whole path works: the API, the database, the worker, Meta and
 the phone.
@@ -29,8 +29,8 @@ An application never names a WhatsApp template. It asks for a **purpose**,
 and the server's config maps each purpose to a template:
 
 ```
-SivaCommTest.exe welcome  ──►  purpose "Welcome"           ──►  Applications[hms-web].Templates.Welcome.Name
-SivaCommTest.exe otp      ──►  purpose "PasswordResetOtp"  ──►  Applications[hms-web].Templates.PasswordResetOtp.Name
+SivaComTest.exe welcome  ──►  purpose "Welcome"           ──►  Applications[hms-web].Templates.Welcome.Name
+SivaComTest.exe otp      ──►  purpose "PasswordResetOtp"  ──►  Applications[hms-web].Templates.PasswordResetOtp.Name
 ```
 
 So the test client's first word is always a **command** (`health`, `otp`,
@@ -126,27 +126,27 @@ If the service does not start, the log says why (for example a `Parameters`
 outside 0–10, or invalid JSON: a missing comma or quote).
 
 > While `Welcome` points at your test template, **HMS_WEB's real welcome
-> messages also use it**, if HMS_WEB is switched to SivaComm
-> (`SivaComm:Enabled: true`). Step 10 puts it back.
+> messages also use it**, if HMS_WEB is switched to SivaCom
+> (`SivaCom:Enabled: true`). Step 10 puts it back.
 
 ---
 
 ## 5. Install the test client
 
-1. Copy the zip `SivaCommTest-<date>-<commit>.zip` to the VM.
+1. Copy the zip `SivaComTest-<date>-<commit>.zip` to the VM.
    - Build it on a development machine:
-     `dotnet publish backend/tools/SivaComm.TestClient -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o artifacts/testclient`
+     `dotnet publish backend/tools/SivaCom.TestClient -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o artifacts/testclient`
 2. Unzip it:
 
    ```powershell
-   Expand-Archive C:\Deployments\sivacom\SivaCommTest-*.zip C:\Deployments\sivacom\test -Force
+   Expand-Archive C:\Deployments\sivacom\SivaComTest-*.zip C:\Deployments\sivacom\test -Force
    cd C:\Deployments\sivacom\test
    dir
    ```
 
-   You should see `SivaCommTest.exe`, `sivacomm-test.json` and `README.txt`.
+   You should see `SivaComTest.exe`, `sivacom-test.json` and `README.txt`.
 
-It needs the .NET 10 runtime, which the VM already has for SivaComm.
+It needs the .NET 10 runtime, which the VM already has for SivaCom.
 
 ---
 
@@ -172,7 +172,7 @@ $test = [ordered]@{
     Phone             = '919160494929'
     WelcomeParameters = @('Test User', 'TEST-001')   # one value per {{n}}, in order
 }
-$test | ConvertTo-Json | Set-Content .\sivacomm-test.json -Encoding utf8
+$test | ConvertTo-Json | Set-Content .\sivacom-test.json -Encoding utf8
 "Template expects $($app.Templates.Welcome.Parameters) value(s); you gave $($test.WelcomeParameters.Count)."
 ```
 
@@ -210,7 +210,7 @@ In PowerShell, in `C:\Deployments\sivacom\test`:
 ### 7a. Health: service, database and key
 
 ```powershell
-.\SivaCommTest.exe health
+.\SivaComTest.exe health
 ```
 
 Expected:
@@ -227,7 +227,7 @@ config: repeat step 6.
 ### 7b. Your template
 
 ```powershell
-.\SivaCommTest.exe welcome 919160494929
+.\SivaComTest.exe welcome 919160494929
 ```
 
 Expected:
@@ -252,7 +252,7 @@ The message arrives on the phone with `{{1}}` = *Test User* and `{{2}}` = *TEST-
 For the Authentication template (`PasswordResetOtp`):
 
 ```powershell
-.\SivaCommTest.exe otp 919160494929
+.\SivaComTest.exe otp 919160494929
 ```
 
 Type the code from WhatsApp when asked. `r` resends it, and Enter cancels.
@@ -262,7 +262,7 @@ would.
 ### 7d. Look up a message later
 
 ```powershell
-.\SivaCommTest.exe status 01a1xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+.\SivaComTest.exe status 01a1xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 Double-clicking the exe shows a menu with the same four choices.
@@ -273,7 +273,7 @@ Double-clicking the exe shows a menu with the same four choices.
 
 | Status | Meaning |
 |---|---|
-| `QUEUED` | Accepted by SivaComm, waiting for the worker (a second or two) |
+| `QUEUED` | Accepted by SivaCom, waiting for the worker (a second or two) |
 | `SUBMITTED` | Handed to Meta, and Meta returned a message id. **With no WhatsApp settings on the server, it was only logged.** |
 | `SENT` | Meta sent it to WhatsApp |
 | `DELIVERED` | It reached the phone |
@@ -339,7 +339,7 @@ After changing `appsettings.Production.json`, always run
 2. **Delete the test client's config**, which holds a real signing secret:
 
    ```powershell
-   Remove-Item C:\Deployments\sivacom\test\sivacomm-test.json
+   Remove-Item C:\Deployments\sivacom\test\sivacom-test.json
    ```
 
    Recreate it with step 6 when you test again.

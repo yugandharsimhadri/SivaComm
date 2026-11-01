@@ -15,7 +15,7 @@ configured. Treat the first real send as the real test.
 Business-initiated messages must be pre-approved templates.
 
 **Password-reset OTP — category Authentication.** Meta fixes the wording
-("*{{1}} is your verification code…*") and adds a copy-code button. SivaComm
+("*{{1}} is your verification code…*") and adds a copy-code button. SivaCom
 sends the code as the single body parameter and again as the button's URL
 parameter, which is the shape Authentication templates take. Create one per
 application if you want the application's name in the template, or share one.
@@ -49,7 +49,7 @@ With `AccessToken` or `PhoneNumberId` empty, messages go to the log instead
 
 In the Meta app → WhatsApp → Configuration → Webhook:
 
-- Callback URL: `https://<sivacomm host>/api/v1/webhooks/whatsapp`
+- Callback URL: `https://<sivacom host>/api/v1/webhooks/whatsapp`
 - Verify token: the `WebhookVerifyToken` above
 - Subscribe to **messages**
 

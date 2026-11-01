@@ -1,4 +1,4 @@
-# Sivayaan Communications (SivaComm) — complete guide
+# Sivayaan Communications (SivaCom) — complete guide
 
 Flow, configuration and operation of the central WhatsApp messaging service
 and its first integration, HMS_WEB. One document to read end to end; the
@@ -16,7 +16,7 @@ shorter pages in this folder ([API.md](API.md), [SECURITY.md](SECURITY.md),
 6. [States and statuses](#6--states-and-statuses)
 7. [What happens when something fails](#7--what-happens-when-something-fails)
 8. [Configuration reference — HMS_WEB](#8--configuration-reference--hms_web)
-9. [Configuration reference — SivaComm](#9--configuration-reference--sivacomm)
+9. [Configuration reference — SivaCom](#9--configuration-reference--sivacom)
 10. [Setting it up, start to finish](#10--setting-it-up-start-to-finish)
 11. [Security model](#11--security-model)
 12. [Operating it](#12--operating-it)
@@ -27,10 +27,10 @@ shorter pages in this folder ([API.md](API.md), [SECURITY.md](SECURITY.md),
 
 ## 1 · What it is and who owns what
 
-SivaComm is one service that every Sivayaan application (HMS_WEB first;
+SivaCom is one service that every Sivayaan application (HMS_WEB first;
 Swarnakshi and TransTrack Web next) uses to send WhatsApp messages:
 
-- **password-reset codes (OTP)** — generated, sent and verified by SivaComm;
+- **password-reset codes (OTP)** — generated, sent and verified by SivaCom;
 - **welcome messages** — sent when an account is created;
 - **delivery tracking and reporting** — an admin dashboard showing every
   message, its delivery status and per-application counts.
@@ -38,11 +38,11 @@ Swarnakshi and TransTrack Web next) uses to send WhatsApp messages:
 The rule the design is built around:
 
 > **The application that owns the user owns the password reset.**
-> SivaComm proves the person holds the phone. The application decides
+> SivaCom proves the person holds the phone. The application decides
 > everything else and changes the password in its own database.
-> SivaComm never receives, stores or changes a password.
+> SivaCom never receives, stores or changes a password.
 
-| Responsibility | Source application (HMS_WEB) | SivaComm |
+| Responsibility | Source application (HMS_WEB) | SivaCom |
 |---|---|---|
 | Who the user is, which account | ✅ | — |
 | Which phone the code goes to (the one **on file**) | ✅ | — |
@@ -51,7 +51,7 @@ The rule the design is built around:
 | Generating, storing (as HMAC), sending the code | — | ✅ |
 | Checking the code, attempts, expiry | — | ✅ |
 | Issuing the one-time verification grant | — | ✅ |
-| Deciding the new-password step may be shown | ✅ (from SivaComm's answer, recorded server-side) | — |
+| Deciding the new-password step may be shown | ✅ (from SivaCom's answer, recorded server-side) | — |
 | Password policy and changing the password | ✅ | — (never sees it) |
 | Delivery receipts, dashboard, audit of messages | — | ✅ |
 
@@ -63,19 +63,19 @@ The rule the design is built around:
 flowchart LR
     B[Browser<br/>HMS_WEB React] -->|HTTPS, no secrets| H[HMS_WEB API<br/>.NET]
     H -->|own database| HD[(HMS PostgreSQL<br/>Users, PasswordResetTransactions)]
-    H -->|HMAC-signed server-to-server| S[SivaComm API<br/>.NET]
-    S --> SD[(SivaComm PostgreSQL<br/>schema comm)]
+    H -->|HMAC-signed server-to-server| S[SivaCom API<br/>.NET]
+    S --> SD[(SivaCom PostgreSQL<br/>schema comm)]
     S -.same process.-> W[Outbox worker]
     W -->|template message| M[Meta WhatsApp<br/>Cloud API]
     M -->|signed webhook:<br/>sent / delivered / read / failed| S
-    A[Operator browser<br/>SivaComm dashboard] -->|cookie session| S
+    A[Operator browser<br/>SivaCom dashboard] -->|cookie session| S
     M -->|WhatsApp| P((User's phone))
 ```
 
 | Part | Technology | Notes |
 |---|---|---|
-| SivaComm API | ASP.NET Core (.NET 10) | `backend/src/SivaComm.Api` — endpoints, auth, serves the dashboard |
-| SivaComm data + services | EF Core 10 + Npgsql | `backend/src/SivaComm.Data` — OTP, grants, outbox, webhook, providers |
+| SivaCom API | ASP.NET Core (.NET 10) | `backend/src/SivaCom.Api` — endpoints, auth, serves the dashboard |
+| SivaCom data + services | EF Core 10 + Npgsql | `backend/src/SivaCom.Data` — OTP, grants, outbox, webhook, providers |
 | Outbox worker | Hosted service in the API process | claims queued rows with `FOR UPDATE SKIP LOCKED`; no Redis/queue broker |
 | Database | PostgreSQL 16+ | its own database, schema `comm`; never shares an application's database |
 | Dashboard | React + TypeScript (Vite) | `dashboard/`; built into the API's `wwwroot`, same origin |
@@ -90,7 +90,7 @@ loses a message — it is retried.
 
 ## 3 · Password reset — the full flow
 
-### 3.1 What the user sees (HMS_WEB, `SivaComm:Enabled = true`)
+### 3.1 What the user sees (HMS_WEB, `SivaCom:Enabled = true`)
 
 Three steps on one page (`/forgot-password`). With the flag off — the
 default — HMS_WEB shows its original page instead; see §3.3.
@@ -104,7 +104,7 @@ default — HMS_WEB shows its original page instead; see §3.3.
 3. **Choose a new password** — shown **only** after the server said
    `VERIFIED` → *Set new password* → back to sign-in.
 
-### 3.2 End to end, with SivaComm enabled
+### 3.2 End to end, with SivaCom enabled
 
 ```mermaid
 sequenceDiagram
@@ -112,8 +112,8 @@ sequenceDiagram
     actor U as User (browser)
     participant H as HMS_WEB API
     participant HD as HMS DB
-    participant S as SivaComm API
-    participant SD as SivaComm DB
+    participant S as SivaCom API
+    participant SD as SivaCom DB
     participant W as Outbox worker
     participant M as Meta WhatsApp
 
@@ -149,17 +149,17 @@ sequenceDiagram
     H->>S: POST /otp/challenges/{id}/completion (reporting only)
 ```
 
-### 3.3 With SivaComm disabled (the normal flow)
+### 3.3 With SivaCom disabled (the normal flow)
 
 **The flag is off by default, and off is HMS_WEB exactly as it was before
-SivaComm** — the original page, endpoints and code, untouched:
+SivaCom** — the original page, endpoints and code, untouched:
 
-| Step | `SivaComm:Enabled = false` (default) |
+| Step | `SivaCom:Enabled = false` (default) |
 |---|---|
 | Ask for a code | `POST /api/auth/forgot-password {username}` → `{ message }`. HMS_WEB stores the code (hashed) in its own `PasswordResetCodes` table and sends it through its own WhatsApp sender, or writes it to the log if WhatsApp is not configured |
 | Code + new password, one screen | `POST /api/auth/reset-password {username, code, newPassword}` — checked and saved in one call (5 attempts, 10 minutes) |
 | Welcome | sent by HMS_WEB itself |
-| SivaComm | never called; `verify-reset-code` / `resend-reset-code` answer 404; no `PasswordResetTransactions` rows |
+| SivaCom | never called; `verify-reset-code` / `resend-reset-code` answer 404; no `PasswordResetTransactions` rows |
 
 The three-step screen in §3.1–3.2 appears only when the flag is on.
 
@@ -170,9 +170,9 @@ The three-step screen in §3.1–3.2 appears only when the flag is on.
 | `resetToken` | 43 random chars | HMS_WEB | ✅ (only this) |
 | reset transaction id → `resetReference` | `hms-6f1c…` | HMS_WEB | no |
 | `userReference` | `u-1b2c…` (HMS internal user id) | HMS_WEB | no |
-| `challengeId` | UUID | SivaComm | no |
-| OTP | `482913` | SivaComm | only on the phone |
-| `verificationGrant` | 43 random chars | SivaComm | **never** |
+| `challengeId` | UUID | SivaCom | no |
+| OTP | `482913` | SivaCom | only on the phone |
+| `verificationGrant` | 43 random chars | SivaCom | **never** |
 
 The browser holds one opaque token. It cannot name a user, a phone, a
 challenge or a grant, so it cannot create or complete a reset on its own say.
@@ -198,7 +198,7 @@ An attacker typing usernames must not learn which exist:
 ```mermaid
 sequenceDiagram
     participant H as HMS_WEB API
-    participant S as SivaComm API
+    participant S as SivaCom API
     participant W as Worker
     participant M as Meta
     H->>H: POST /api/tenants/register succeeds (clinic + admin with phone)
@@ -213,7 +213,7 @@ sequenceDiagram
 - `clientReference` is derived from the content, so a retried registration
   does not send two welcomes.
 - A failed welcome never fails the registration.
-- With SivaComm disabled, HMS_WEB sends it itself (same template, same words).
+- With SivaCom disabled, HMS_WEB sends it itself (same template, same words).
 
 ---
 
@@ -231,7 +231,7 @@ flowchart LR
     Se -.webhook failed.-> F
 ```
 
-- Meta calls `POST /api/v1/webhooks/whatsapp`; SivaComm checks
+- Meta calls `POST /api/v1/webhooks/whatsapp`; SivaCom checks
   `X-Hub-Signature-256` against the app secret **before** reading the body.
 - Duplicates are ignored (each `messageId:status` is stored once).
 - Out-of-order events never move a status backwards ("delivered" then "sent"
@@ -256,7 +256,7 @@ The dashboard shows the two side by side: *Delivery* and *OTP state*.
 | `PasswordChanged` | done | — |
 | `Closed` | ended: expired (30 min), attempts used, cancelled, superseded by a new reset | — |
 
-### 6.2 SivaComm OTP challenge
+### 6.2 SivaCom OTP challenge
 
 | Status | Meaning |
 |---|---|
@@ -284,7 +284,7 @@ Plus, separately: grant `consumed` (time + idempotency key) and challenge
 | `DISABLED` | 403 | self-service reset is switched off |
 | `TEMPORARY_ERROR` | 503 | "try again in a moment" — **never** success |
 
-### 6.4 What SivaComm tells the application
+### 6.4 What SivaCom tells the application
 
 | `status` | HTTP | |
 |---|---|---|
@@ -310,7 +310,7 @@ Every response carries `correlationId`, also returned as `X-Correlation-Id`.
 
 | Situation | Result | Recovery |
 |---|---|---|
-| SivaComm down, slow (>10 s), 5xx, 401, unreadable answer | HMS: `TEMPORARY_ERROR` (503) | user retries the same code; nothing is assumed verified |
+| SivaCom down, slow (>10 s), 5xx, 401, unreadable answer | HMS: `TEMPORARY_ERROR` (503) | user retries the same code; nothing is assumed verified |
 | Meta down or throttling | message stays Queued, retried up to 5 times with growing, jittered delays | automatic; then `Failed` in the dashboard |
 | Meta refuses (bad template, expired token, unknown number) | `Failed` at once, Meta's code recorded | fix config; user requests a new code |
 | Code typed after 10 minutes | `EXPIRED` | *Start again* |
@@ -330,18 +330,18 @@ Every response carries `correlationId`, also returned as `X-Correlation-Id`.
 File: `backend/src/SivayaanHMS.Api/appsettings.Production.json` on the
 server (git-ignored; template: `appsettings.Production.json.template`), or
 `appsettings.Local.json` on a developer machine. Every key also works as an
-environment variable with `__` (e.g. `SivaComm__Secret`).
+environment variable with `__` (e.g. `SivaCom__Secret`).
 
-### 8.1 `SivaComm` — the switch
+### 8.1 `SivaCom` — the switch
 
 | Key | Default | Meaning |
 |---|---|---|
-| `SivaComm:Enabled` | `false` | **`true`: OTP authentication and welcome messages through SivaComm. `false`: the normal flow inside HMS_WEB.** |
-| `SivaComm:BaseUrl` | — | SivaComm origin, e.g. `https://comm.sivayaan.example`. Server to server; never given to the browser. Required when enabled. |
-| `SivaComm:ClientId` | `hms-web` | the application code registered in SivaComm. Required when enabled. |
-| `SivaComm:KeyId` | — | key id shown by the SivaComm dashboard. Required when enabled. |
-| `SivaComm:Secret` | — | signing secret shown **once** by the dashboard. Production file or `SivaComm__Secret` only — never committed. Required when enabled. |
-| `SivaComm:TimeoutSeconds` | `10` | per-call limit; past it the call is a `TEMPORARY_ERROR` |
+| `SivaCom:Enabled` | `false` | **`true`: OTP authentication and welcome messages through SivaCom. `false`: the normal flow inside HMS_WEB.** |
+| `SivaCom:BaseUrl` | — | SivaCom origin, e.g. `https://comm.sivayaan.example`. Server to server; never given to the browser. Required when enabled. |
+| `SivaCom:ClientId` | `hms-web` | the application code registered in SivaCom. Required when enabled. |
+| `SivaCom:KeyId` | — | key id shown by the SivaCom dashboard. Required when enabled. |
+| `SivaCom:Secret` | — | signing secret shown **once** by the dashboard. Production file or `SivaCom__Secret` only — never committed. Required when enabled. |
+| `SivaCom:TimeoutSeconds` | `10` | per-call limit; past it the call is a `TEMPORARY_ERROR` |
 
 Enabled with any required value missing → HMS_WEB **refuses to start** and
 names the section.
@@ -350,9 +350,9 @@ names the section.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `PasswordReset:Enabled` | `true` | `false`: no *Forgot password* link ("ask your clinic admin"), every reset endpoint answers 403 `DISABLED`. Independent of `SivaComm:Enabled`. |
+| `PasswordReset:Enabled` | `true` | `false`: no *Forgot password* link ("ask your clinic admin"), every reset endpoint answers 403 `DISABLED`. Independent of `SivaCom:Enabled`. |
 
-### 8.3 `WhatsApp` — used only when SivaComm is disabled
+### 8.3 `WhatsApp` — used only when SivaCom is disabled
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -368,19 +368,19 @@ names the section.
 Normal flow (nothing to add — this is the default):
 
 ```json
-{ "SivaComm": { "Enabled": false } }
+{ "SivaCom": { "Enabled": false } }
 ```
 
-OTP through SivaComm:
+OTP through SivaCom:
 
 ```json
 {
-  "SivaComm": {
+  "SivaCom": {
     "Enabled": true,
     "BaseUrl": "https://comm.sivayaan.example",
     "ClientId": "hms-web",
     "KeyId": "k20261024ab12cd",
-    "Secret": "<shown once in the SivaComm dashboard>",
+    "Secret": "<shown once in the SivaCom dashboard>",
     "TimeoutSeconds": 10
   }
 }
@@ -400,7 +400,7 @@ No self-service reset at all:
 | `POST /api/auth/forgot-password` | `{ username }` | → `{ message, resetToken }` |
 | `POST /api/auth/resend-reset-code` | `{ resetToken }` | always the same message |
 | `POST /api/auth/verify-reset-code` | `{ resetToken, code }` | → step response |
-| `POST /api/auth/reset-password` | `{ resetToken, newPassword }` | → step response; the old `{ username, code, newPassword }` shape still works when SivaComm is disabled |
+| `POST /api/auth/reset-password` | `{ resetToken, newPassword }` | → step response; the old `{ username, code, newPassword }` shape still works when SivaCom is disabled |
 
 Database change: one new table, `PasswordResetTransactions` (migration
 `20261024160740_PasswordResetTransactions`, additive only). Run migrations
@@ -408,9 +408,9 @@ before starting the new build, as for every release.
 
 ---
 
-## 9 · Configuration reference — SivaComm
+## 9 · Configuration reference — SivaCom
 
-File: `backend/src/SivaComm.Api/appsettings.Production.json` (git-ignored),
+File: `backend/src/SivaCom.Api/appsettings.Production.json` (git-ignored),
 `appsettings.Local.json` for development, or environment variables.
 
 ### 9.1 Required
@@ -442,7 +442,7 @@ $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create
 
 | Key | Default |
 |---|---|
-| `Database:Host` / `Port` / `Name` / `Username` | `localhost` / `5432` / `sivacomm` / `sivacomm` |
+| `Database:Host` / `Port` / `Name` / `Username` | `localhost` / `5432` / `sivacom` / `sivacomm` |
 | `Database:SslMode` | `Prefer` (use `Require` across a network) |
 | `Database:MaxPoolSize` | `30` |
 | `Database:CommandTimeoutSeconds` | `15` |
@@ -481,11 +481,11 @@ list of what is wrong):
 
 | Key | Meaning |
 |---|---|
-| `Applications[].Code` | e.g. `hms-web` — must equal that application's `SivaComm:ClientId` |
+| `Applications[].Code` | e.g. `hms-web` — must equal that application's `SivaCom:ClientId` |
 | `Applications[].Name` | shown in the dashboard |
 | `Applications[].Enabled` | `false` → every call it makes is refused |
-| `Applications[].Keys[].KeyId` | short label, e.g. `hms-2026-10` — equals the application's `SivaComm:KeyId` |
-| `Applications[].Keys[].Secret` | 32+ random characters — equals the application's `SivaComm:Secret` |
+| `Applications[].Keys[].KeyId` | short label, e.g. `hms-2026-10` — equals the application's `SivaCom:KeyId` |
+| `Applications[].Keys[].Secret` | 32+ random characters — equals the application's `SivaCom:Secret` |
 | `Applications[].Keys[].Revoked` | `true` stops that key (rotation, leak) |
 | `Applications[].Templates.PasswordResetOtp` | `Name`, `Language` of the approved **Authentication** template (always 1 parameter) |
 | `Applications[].Templates.Welcome` | `Name`, `Language`, `Parameters` of the approved **Utility** template |
@@ -500,7 +500,7 @@ application in the file, the file wins at the next restart.
 | `Urls` | `http://localhost:6073` | where the service listens |
 | `Cors:AllowedOrigins` | `[]` | the dashboard's origin when it is not served by the API — production: `["https://sivacom.sivayaantechnologies.com"]` |
 | `DataProtection:KeysPath` | — | folder for the dashboard's login-cookie keys; set it, or every restart signs operators out |
-| `Logging:File:PathFormat` | — | daily log file, e.g. `C:\Server\sivacomapi\logs\sivacomm-{Date}.log`; a service has no console |
+| `Logging:File:PathFormat` | — | daily log file, e.g. `C:\Server\sivacomapi\logs\sivacom-{Date}.log`; a service has no console |
 | `Logging:File:RetainedFileCountLimit` | `31` | days of log files kept |
 
 ### 9.8 Full example
@@ -511,7 +511,7 @@ In short:
 ```json
 {
   "Urls": "http://localhost:6073",
-  "Database": { "Host": "localhost", "Name": "sivacomm", "Username": "sivacomm", "Password": "…" },
+  "Database": { "Host": "localhost", "Name": "sivacom", "Username": "sivacomm", "Password": "…" },
   "Security": { "MasterKey": "…" },
   "Admin":    { "Username": "ops", "Password": "…" },
   "WhatsApp": {
@@ -532,7 +532,7 @@ In short:
     }
   ],
   "DataProtection": { "KeysPath": "C:\\Server\\sivacomapi\\keys" },
-  "Logging": { "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log" } }
+  "Logging": { "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log" } }
 }
 ```
 
@@ -545,12 +545,12 @@ In short:
 | 1 | Meta Business account, app with WhatsApp, business verification, real number | business.facebook.com | number shows in WhatsApp Manager |
 | 2 | Permanent system-user token; note phone number ID and app secret | Business Settings | you have 3 values |
 | 3 | Submit templates: **Authentication** (code) and **Utility** `hms_welcome` | WhatsApp Manager | both *Approved* |
-| 4 | Create role and database `sivacomm` | PostgreSQL | `psql -U sivacomm` connects |
+| 4 | Create role `sivacomm` and database `sivacom` | PostgreSQL | `psql -U sivacomm` connects |
 | 5 | Generate master key, admin password, webhook token, HMS signing secret | PowerShell | 4 values |
-| 6 | Write SivaComm `appsettings.Production.json` from the template — including the `Applications` entry for `hms-web` with its key and templates (§9.8) | server | no `REPLACE-ME` left |
-| 7 | `.\deploy\Deploy-SivaComm.ps1` — builds, migrates, installs the Windows service, starts it | server | `/health/ready` → `ready` |
+| 6 | Write SivaCom `appsettings.Production.json` from the template — including the `Applications` entry for `hms-web` with its key and templates (§9.8) | server | no `REPLACE-ME` left |
+| 7 | `.\deploy\Deploy-SivaCom.ps1` — builds, migrates, installs the Windows service, starts it | server | `/health/ready` → `ready` |
 | 8 | Public HTTPS name through the tunnel; Meta webhook → `https://<host>/api/v1/webhooks/whatsapp` | cloudflared, Meta | Meta shows *Verified* |
-| 9 | HMS_WEB: `SivaComm` section with `Enabled: true` and the same `KeyId`/`Secret` (§8.4); its usual migrate + deploy | HMS server | HMS starts without error |
+| 9 | HMS_WEB: `SivaCom` section with `Enabled: true` and the same `KeyId`/`Secret` (§8.4); its usual migrate + deploy | HMS server | HMS starts without error |
 | 10 | Test: register a clinic with your number; *Forgot password* | HMS + phone | welcome and code arrive; dashboard shows *Delivered* |
 
 Every one of these is a config-file value or a script; nothing has to be
@@ -559,7 +559,7 @@ clicked in the dashboard. The detailed version, with commands, is
 [WORKFLOWS.md](WORKFLOWS.md).
 
 Until steps 1–3 are done, steps 4–10 can run with `WhatsApp` empty:
-everything works, and SivaComm logs each message as not sent.
+everything works, and SivaCom logs each message as not sent.
 
 Local development: [DEPLOYMENT.md](DEPLOYMENT.md) §14.
 
@@ -573,11 +573,11 @@ Local development: [DEPLOYMENT.md](DEPLOYMENT.md) §14.
 | Guessing the code | 6 digits, 5 attempts, 10 minutes; concurrent guesses cannot exceed the limit (row lock) |
 | Flooding a phone with codes | 3 sends per user per 15 minutes; 60 s resend cooldown; per-application rate limit |
 | Database dump reveals codes | codes stored only as HMAC with a key outside the database; queued codes encrypted and wiped after sending |
-| Skipping the code step | HMS accepts a new password only when its own record says `Verified`; SivaComm grant consumed first |
+| Skipping the code step | HMS accepts a new password only when its own record says `Verified`; SivaCom grant consumed first |
 | Replaying a grant | single use; bound to application + reset reference; 10 min; other idempotency key → `ALREADY_USED` |
 | One application acting for another | identity comes only from the request signature; every lookup filtered by it; foreign ids → not found |
 | Forged or replayed API calls | HMAC-SHA256 over method, path, timestamp, nonce, body hash; ±5 min; nonce single use |
-| Password leaking to SivaComm | no password field exists; unknown JSON fields are rejected |
+| Password leaking to SivaCom | no password field exists; unknown JSON fields are rejected |
 | Learning which usernames exist | identical responses, decoy resets, silent cooldowns |
 | Outage mistaken for success | every failure path is `TEMPORARY_ERROR`; covered by tests |
 | Forged delivery webhooks | `X-Hub-Signature-256` verified before parsing |
@@ -601,7 +601,7 @@ Local development: [DEPLOYMENT.md](DEPLOYMENT.md) §14.
 **Health:** `/health/live` (process), `/health/ready` (database + worker).
 
 **Key rotation:** Issue second key → update the application's
-`SivaComm:KeyId` / `Secret` → restart it → revoke the old key.
+`SivaCom:KeyId` / `Secret` → restart it → revoke the old key.
 
 **Suspected key leak:** Revoke at once. The application's resets fail closed
 (`TEMPORARY_ERROR`) until it has a new key.
@@ -614,7 +614,7 @@ Local development: [DEPLOYMENT.md](DEPLOYMENT.md) §14.
 | `(#190) Access token has expired` | 24-hour token in config | permanent system-user token |
 | `(#131030) Recipient not in allowed list` | Meta test number | register the real number |
 | `could not decrypt` | master key changed | restore the old key; re-issue application keys |
-| HMS answers 503 on every reset | SivaComm unreachable, or 401 (wrong key / server clock) | check HMS log line "SivaComm refused this application's signature" |
+| HMS answers 503 on every reset | SivaCom unreachable, or 401 (wrong key / server clock) | check HMS log line "SivaCom refused this application's signature" |
 
 **Retention:** nonces 30 min; encrypted phone numbers 30 days; everything
 else 180 days. Runs hourly inside the worker.
@@ -625,10 +625,10 @@ else 180 days. Runs hourly inside the worker.
 
 ```powershell
 # a PostgreSQL role with CREATEDB; each test gets a throwaway database
-$env:SIVACOMM_TEST_PG    = "Host=localhost;Username=sivacomm;Password=..."
+$env:SIVACOM_TEST_PG    = "Host=localhost;Username=sivacomm;Password=..."
 $env:SIVAYAANHMS_TEST_PG = "Host=localhost;Username=sivacomm;Password=..."
 
-dotnet test SivaComm/backend                       # 59 tests
+dotnet test SivaCom/backend                       # 59 tests
 dotnet test HMS_WEB/backend/tests/SivayaanHMS.Tests # 130 tests
 ```
 
@@ -642,7 +642,7 @@ early webhooks; signature, tampered body, stale timestamp, replayed nonce,
 revoked/rotated key; unknown field (`newPassword`) rejected; cross-application
 access; admin auth and CSRF header; HMS flow success, every failure, outage at
 verify and consume, lost response, concurrent submit, decoys, expiry, local
-mode end to end, and every kind of SivaComm outage → `TEMPORARY_ERROR`.
+mode end to end, and every kind of SivaCom outage → `TEMPORARY_ERROR`.
 
 Verified manually (2026-10-24/25): both services together on one machine —
 register, welcome, forgot, wrong code, password before verify (refused),
@@ -659,10 +659,10 @@ credentials exist yet.
 | Item | Status |
 |---|---|
 | Live WhatsApp sending | code complete, untested against Meta until credentials exist |
-| Swarnakshi, TransTrack Web | not integrated; each needs its own reset flow built (they have none today) using HMS_WEB's `PasswordResetFlow` + `SivaCommClient` as the pattern |
+| Swarnakshi, TransTrack Web | not integrated; each needs its own reset flow built (they have none today) using HMS_WEB's `PasswordResetFlow` + `SivaComClient` as the pattern |
 | Signing out existing sessions after a reset | HMS uses stateless 8-hour tokens; no revocation (same for change-password today) |
-| HMS's own WhatsApp sender accepts a bare 10-digit number when no country code is set | documented; fixed in SivaComm's copy only |
+| HMS's own WhatsApp sender accepts a bare 10-digit number when no country code is set | documented; fixed in SivaCom's copy only |
 | HMS frontend lint gate | fails on 41 warnings vs limit 39 — none in this work |
 | SMS | not implemented; another `IMessageProvider` |
-| Further message types (reminders, reports) | needs a new purpose + endpoint in SivaComm — see CONFIGURATION.md, last section |
-| Old rows in HMS `PasswordResetCodes` / `PasswordResetTransactions` | not swept (SivaComm sweeps its own) |
+| Further message types (reminders, reports) | needs a new purpose + endpoint in SivaCom — see CONFIGURATION.md, last section |
+| Old rows in HMS `PasswordResetCodes` / `PasswordResetTransactions` | not swept (SivaCom sweeps its own) |

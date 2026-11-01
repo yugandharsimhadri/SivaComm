@@ -1,9 +1,9 @@
-# SivaComm — centralised WhatsApp OTP & messaging service
+# SivaCom — centralised WhatsApp OTP & messaging service
 
 Status (2026-10-24): **steps 1–8 of §12 implemented for HMS_WEB**; Swarnakshi
 and TransTrack Web deliberately deferred until HMS_WEB is proven. HMS_WEB's
 changes are on its branch `feature/sivacomm-otp`, behind
-`SivaComm:Enabled = true` (default `false`, unchanged behaviour).
+`SivaCom:Enabled = true` (default `false`, unchanged behaviour).
 Live WhatsApp delivery is **not** verified — no Meta credentials exist yet.
 
 Where the build differs from this plan:
@@ -14,7 +14,7 @@ Where the build differs from this plan:
 - Application secrets and payloads are encrypted with a configured master key
   (AES-GCM via HKDF), not ASP.NET Data Protection, so the key is explicit and
   portable between machines.
-- The HMS client is a single file inside HMS_WEB (`SivaCommClient.cs`), not a
+- The HMS client is a single file inside HMS_WEB (`SivaComClient.cs`), not a
   shared package, matching HMS_WEB's "no shared references" rule. docs/API.md
   specifies the signature for the other applications.
 
@@ -27,42 +27,42 @@ The original plan follows unchanged.
 HMS_WEB has a working, single-application version of this feature. It is the
 starting point, not something to throw away.
 
-| Piece | Where | Reuse in SivaComm |
+| Piece | Where | Reuse in SivaCom |
 |---|---|---|
 | Flow + security rationale | `HMS_WEB/docs/PASSWORD_RESET.md` | Rules carried over verbatim (stored phone only, uniform forgot-password answer, 6 digits / 10 min / 5 attempts / 3 sends per 15 min, new code kills old) |
-| Meta setup runbook | `HMS_WEB/docs/WHATSAPP_SETUP.md` | Moves to SivaComm almost unchanged; HMS_WEB keeps a pointer |
-| `IMessageSender`, `OutboundMessage`, `MessagePurpose` | `SivayaanHMS.Data/Messaging/IMessageSender.cs` | Becomes SivaComm's provider abstraction (`IMessageProvider`), extended to return a provider message id |
+| Meta setup runbook | `HMS_WEB/docs/WHATSAPP_SETUP.md` | Moves to SivaCom almost unchanged; HMS_WEB keeps a pointer |
+| `IMessageSender`, `OutboundMessage`, `MessagePurpose` | `SivayaanHMS.Data/Messaging/IMessageSender.cs` | Becomes SivaCom's provider abstraction (`IMessageProvider`), extended to return a provider message id |
 | `WhatsAppCloudMessageSender` + `TryNormalise` | `SivayaanHMS.Data/Messaging/WhatsAppCloudMessageSender.cs` | Ported; number-normalisation tests (`WhatsAppNumberTests.cs`) ported with it |
-| `LoggingMessageSender` | same file | Kept as SivaComm's dev provider |
-| `PasswordResetService` (issue/redeem) | `SivayaanHMS.Data/PasswordResetService.cs` | Logic split: OTP half moves to SivaComm; password half stays in HMS_WEB |
-| `forgot-password` / `reset-password` | `SivayaanHMS.Api/Controllers/AuthController.cs` | Kept; re-wired to call SivaComm |
+| `LoggingMessageSender` | same file | Kept as SivaCom's dev provider |
+| `PasswordResetService` (issue/redeem) | `SivayaanHMS.Data/PasswordResetService.cs` | Logic split: OTP half moves to SivaCom; password half stays in HMS_WEB |
+| `forgot-password` / `reset-password` | `SivayaanHMS.Api/Controllers/AuthController.cs` | Kept; re-wired to call SivaCom |
 | `ForgotPasswordPage.tsx` | `HMS_WEB/frontend/src/pages` | Gains a third step (see gap G1) |
 
 Stack is consistent across the candidates: **.NET 10, EF Core 10, Npgsql 10,
-React + TypeScript + Vite**. SivaComm will match it.
+React + TypeScript + Vite**. SivaCom will match it.
 
 ## 2 · Conflicts and gaps found
 
 | # | Finding | Consequence |
 |---|---|---|
 | G1 | HMS_WEB's reset screen takes **code + new password in one submit**, and the backend checks the code and sets the password in one call. | Conflicts with the requirement that password fields appear only after backend-authoritative OTP verification. Needs a verify step and a server-held grant. |
-| G2 | OTP is stored as a **PBKDF2 hash with per-row salt**. | For a 6-digit code this does not protect a dump: 10⁶ guesses per row is cheap whatever the KDF. SivaComm uses **HMAC-SHA256 with a server-side pepper** (key not in the DB), which does. |
+| G2 | OTP is stored as a **PBKDF2 hash with per-row salt**. | For a 6-digit code this does not protect a dump: 10⁶ guesses per row is cheap whatever the KDF. SivaCom uses **HMAC-SHA256 with a server-side pepper** (key not in the DB), which does. |
 | G3 | Reset templates are **Utility** category. | Meta requires OTPs to use the **Authentication** category (copy-code button, no free text). The `hms_password_reset` template must be resubmitted as Authentication. |
-| G4 | No delivery receipts; the message id from Meta is only logged. | SivaComm adds the webhook and stores provider message ids. |
+| G4 | No delivery receipts; the message id from Meta is only logged. | SivaCom adds the webhook and stores provider message ids. |
 | G5 | `whatsapp_reset.md` named in the brief does **not exist**. The closest file is `WHATSAPP_SETUP.md`. | I will update `PASSWORD_RESET.md` and `WHATSAPP_SETUP.md` unless you meant a different file. |
 | G6 | "Three applications on .NET + React + PostgreSQL": candidates found — **HMS_WEB** (Postgres), **Swarnakshi** (Postgres), **TransTrack Web** (Postgres/SQLite, Next.js frontend). ABPS_WEB is SQL Server; ShiftPlanner is SQLite. Swarnakshi and TransTrack have **no self-service reset** today (TransTrack has admin-issued temporary passwords only). | Needs confirming. For apps with no reset flow, integration means building one — that is new work in those apps, not a re-wire. |
-| G7 | Codes are never swept (noted in PASSWORD_RESET.md). | SivaComm adds a retention job. |
+| G7 | Codes are never swept (noted in PASSWORD_RESET.md). | SivaCom adds a retention job. |
 
 ## 3 · Ownership split
 
 ```
- Browser ──► Source app backend ──(signed S2S)──► SivaComm API ──► outbox ──► worker ──► WhatsApp Cloud API
+ Browser ──► Source app backend ──(signed S2S)──► SivaCom API ──► outbox ──► worker ──► WhatsApp Cloud API
                 │  owns: user lookup, stored phone,        owns: OTP, attempts, grant,        │
                 │  reset transaction, password, sessions    message status, dashboard          ▼
-                └◄──────────── synchronous verify result ◄──┘          Meta webhook ──► SivaComm (status only)
+                └◄──────────── synchronous verify result ◄──┘          Meta webhook ──► SivaCom (status only)
 ```
 
-SivaComm **never** receives a password field — request DTOs have none, and the
+SivaCom **never** receives a password field — request DTOs have none, and the
 JSON options reject unknown members so one cannot be smuggled in.
 
 ## 4 · Password-reset sequence (per source app)
@@ -70,12 +70,12 @@ JSON options reject unknown members so one cannot be smuggled in.
 1. **Forgot** — source backend resolves user + stored phone (unchanged
    enumeration-safe answer), creates its own `ResetTransaction` row, calls
    `POST /api/v1/otp/challenges` with `{ resetReference, userReference, phone, purpose }`.
-   SivaComm returns `{ challengeId, status: "QUEUED", expiresAtUtc }`. The
+   SivaCom returns `{ challengeId, status: "QUEUED", expiresAtUtc }`. The
    source stores `challengeId` against its transaction; the browser gets only an
    opaque reset-session cookie/token and the same generic sentence.
 2. **Verify** — browser posts OTP to the source backend; source calls
    `POST /api/v1/otp/challenges/{challengeId}/verify` with `{ otp, resetReference }`.
-   On `VERIFIED` SivaComm returns a 32-byte random `verificationGrant` (stored
+   On `VERIFIED` SivaCom returns a 32-byte random `verificationGrant` (stored
    only as SHA-256), 10-min expiry. Source keeps the grant **server-side** and
    tells the browser "show new-password fields".
 3. **Set password** — browser posts new password to the source backend.
@@ -90,7 +90,7 @@ so the source can retry safely. The source's password change is idempotent per
 `ResetTransaction` (state `PasswordChanged`), so a retried submit after a lost
 response returns success instead of a second change.
 
-**Timeouts / 5xx from SivaComm are always failure** (`TEMPORARY_ERROR`) in the
+**Timeouts / 5xx from SivaCom are always failure** (`TEMPORARY_ERROR`) in the
 source app; there is no "assume verified" path.
 
 ## 5 · Normalised verification outcomes
@@ -133,20 +133,20 @@ Each app gets a client id and a secret (two active keys for rotation, revocable
 in the dashboard). Every request is **HMAC-SHA256 signed**:
 
 ```
-X-SivaComm-Client: hms-web
-X-SivaComm-Key-Id: k2
-X-SivaComm-Timestamp: 2026-10-24T10:00:00Z
-X-SivaComm-Nonce: <uuid>
-X-SivaComm-Signature: base64(HMAC(secret, method \n path \n timestamp \n nonce \n sha256(body)))
+X-SivaCom-Client: hms-web
+X-SivaCom-Key-Id: k2
+X-SivaCom-Timestamp: 2026-10-24T10:00:00Z
+X-SivaCom-Nonce: <uuid>
+X-SivaCom-Signature: base64(HMAC(secret, method \n path \n timestamp \n nonce \n sha256(body)))
 ```
 
 Secrets are stored encrypted with ASP.NET Data Protection (HMAC needs the
 secret, so it cannot be one-way hashed). The client identity comes **only** from
 the verified signature; every query is filtered by it, so app B cannot read or
-verify app A's challenges. A small `SivaComm.Client` NuGet-style project does
+verify app A's challenges. A small `SivaCom.Client` NuGet-style project does
 the signing so each app adds ~20 lines, not a reimplementation.
 
-## 8 · Database (`sivacomm`, own database, schema `comm`)
+## 8 · Database (`sivacom`, own database, schema `comm`)
 
 `applications`, `application_keys`, `otp_challenges` (app_id, reset_reference,
 user_reference, phone_masked, phone_enc, otp_hmac, attempts, status, expires_at,
@@ -197,12 +197,12 @@ provider health), Messages (paginated, filters, masked phones), Applications
 2. OTP challenge create, outbox, logging provider
 3. Verify + grant + consume (atomicity / concurrency / replay tests)
 4. WhatsApp provider port + webhook
-5. `SivaComm.Client` library
-6. HMS_WEB integration behind `SivaComm:Enabled = false | true` (false stays
+5. `SivaCom.Client` library
+6. HMS_WEB integration behind `SivaCom:Enabled = false | true` (false stays
    default, so current behaviour and deployment are unchanged until switched);
    3-step reset page; docs updated
 7. Dashboard
-8. Welcome messages via SivaComm
+8. Welcome messages via SivaCom
 9. Other two apps
 
 Live WhatsApp delivery cannot be claimed working until real Meta credentials

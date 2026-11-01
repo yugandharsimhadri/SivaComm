@@ -94,7 +94,7 @@ Development; anywhere else it logs that a message was dropped.
 
 Separate cookie authentication (HttpOnly, SameSite=Strict, Secure outside
 Development, 8 h sliding). State-changing admin calls require
-`X-SivaComm-Admin: 1`, which a cross-site page cannot add without a CORS
+`X-SivaCom-Admin: 1`, which a cross-site page cannot add without a CORS
 preflight that this API never grants. Login is rate-limited per IP and
 compares against a decoy hash for unknown usernames so timing does not reveal
 which usernames exist. The first admin is created from configuration only

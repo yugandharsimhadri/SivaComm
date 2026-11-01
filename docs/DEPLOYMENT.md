@@ -8,7 +8,7 @@
 > key (§5), the Day-2 recipes (§12) and local development (§14). Where the
 > two differ, DEPLOYMENT_AZURE.md is current.
 
-How to take SivaComm and HMS_WEB from a fresh server to live WhatsApp
+How to take SivaCom and HMS_WEB from a fresh server to live WhatsApp
 password resets. **Every setting lives in a config file** — no dashboard
 clicks are needed to deploy, and redeploying the same files gives the same
 result. For what travels between the services, see
@@ -17,11 +17,11 @@ result. For what travels between the services, see
 - [0. What you end up with](#0-what-you-end-up-with)
 - [1. Before you start](#1-before-you-start)
 - [2. Meta / WhatsApp](#2-meta--whatsapp)
-- [3. SivaComm database](#3-sivacomm-database)
+- [3. SivaCom database](#3-sivacom-database)
 - [4. Generate the secrets](#4-generate-the-secrets)
-- [5. SivaComm config file](#5-sivacomm-config-file)
-- [6. Deploy SivaComm](#6-deploy-sivacomm)
-- [7. Make SivaComm reachable (HTTPS)](#7-make-sivacomm-reachable-https)
+- [5. SivaCom config file](#5-sivacom-config-file)
+- [6. Deploy SivaCom](#6-deploy-sivacom)
+- [7. Make SivaCom reachable (HTTPS)](#7-make-sivacom-reachable-https)
 - [8. Meta webhook](#8-meta-webhook)
 - [9. HMS_WEB config file](#9-hms_web-config-file)
 - [10. Deploy HMS_WEB](#10-deploy-hms_web)
@@ -39,7 +39,7 @@ result. For what travels between the services, see
 flowchart LR
     subgraph "Server (Windows)"
         direction TB
-        PG[(PostgreSQL<br/>sivacomm · sivayaanhms)]
+        PG[(PostgreSQL<br/>sivacom · sivayaanhms)]
         SC["SivaComApi service<br/>C:\Server\sivacomapi<br/>appsettings.Production.json"]
         HM["SivayaanHMSApi service<br/>(HMS_WEB)<br/>appsettings.Production.json"]
         CF[cloudflared tunnel]
@@ -57,9 +57,9 @@ flowchart LR
 
 | Piece | Where | Configured by |
 |---|---|---|
-| SivaComm API + worker + dashboard | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` | `C:\Server\sivacomapi\appsettings.Production.json` |
-| SivaComm database | PostgreSQL database `sivacomm`, role `sivacomm` | — |
-| HMS_WEB API | its existing Windows service | HMS_WEB's `appsettings.Production.json` (`SivaComm` section) |
+| SivaCom API + worker + dashboard | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` | `C:\Server\sivacomapi\appsettings.Production.json` |
+| SivaCom database | PostgreSQL database `sivacom`, role `sivacomm` | — |
+| HMS_WEB API | its existing Windows service | HMS_WEB's `appsettings.Production.json` (`SivaCom` section) |
 | Public HTTPS names | Cloudflare Tunnel (as HMS already uses) | the tunnel's config |
 
 The two config files are the whole deployment. Both are kept **out of
@@ -77,8 +77,8 @@ On the server:
 | Node.js 20+ (builds the dashboard) | `node --version` |
 | PostgreSQL 16+ | the `postgresql-x64-*` service is running |
 | An elevated PowerShell | the deploy script installs a service |
-| The SivaComm repository | e.g. `C:\src\SivaComm` |
-| A public hostname for SivaComm | e.g. `sivacomapi.sivayaantechnologies.com` (step 7) |
+| The SivaCom repository | e.g. `C:\src\SivaCom` |
+| A public hostname for SivaCom | e.g. `sivacomapi.sivayaantechnologies.com` (step 7) |
 
 Start step 2 first — Meta's approvals take days; everything else takes an hour.
 
@@ -87,7 +87,7 @@ Start step 2 first — Meta's approvals take days; everything else takes an hour
 ## 2. Meta / WhatsApp
 
 Full walkthrough: [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md). Collect these
-**six values** — they all go into SivaComm's config file in step 5:
+**six values** — they all go into SivaCom's config file in step 5:
 
 | # | Value | Where in Meta |
 |---|---|---|
@@ -105,25 +105,25 @@ Welcome to Sivayaan HMS, {{1}}. Your admin username is {{2}} — sign in with th
 ```
 
 Until these exist you can still deploy everything: leave the `WhatsApp`
-section empty and SivaComm runs normally but sends nothing (it logs that each
+section empty and SivaCom runs normally but sends nothing (it logs that each
 message was not sent).
 
 ---
 
-## 3. SivaComm database
+## 3. SivaCom database
 
 In an elevated PowerShell, as the PostgreSQL superuser. Choose a strong
 password (it becomes **D1** in step 5):
 
 ```powershell
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE ROLE sivacomm LOGIN PASSWORD 'D1-strong-password-here';"
-& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE sivacomm OWNER sivacomm ENCODING 'UTF8' TEMPLATE template0;"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE sivacom OWNER sivacomm ENCODING 'UTF8' TEMPLATE template0;"
 ```
 
 The production role does **not** get `CREATEDB` (only a developer's test
 role needs it). Tables are created by the deploy script's migration step.
 
-Add `sivacomm` to whatever backs up `sivayaanhms` — the same nightly
+Add `sivacom` to whatever backs up `sivayaanhms` — the same nightly
 `pg_dump`, the same off-machine copy.
 
 ---
@@ -153,13 +153,13 @@ Pick a key id to go with S4 — any short label, e.g. `hms-2026-10` (**K1**).
 
 ---
 
-## 5. SivaComm config file
+## 5. SivaCom config file
 
 Create the install folder and the config file from the template:
 
 ```powershell
 New-Item -ItemType Directory -Force C:\Server\sivacomapi
-Copy-Item C:\src\SivaComm\deploy\appsettings.Production.json.template C:\Server\sivacomapi\appsettings.Production.json
+Copy-Item C:\src\SivaCom\deploy\appsettings.Production.json.template C:\Server\sivacomapi\appsettings.Production.json
 notepad C:\Server\sivacomapi\appsettings.Production.json
 ```
 
@@ -174,7 +174,7 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
 
   "Database": {
     "Host": "localhost", "Port": 5432,
-    "Name": "sivacomm", "Username": "sivacomm",
+    "Name": "sivacom", "Username": "sivacomm",
     "Password": "D1",                                     // step 3
     "SslMode": "Prefer",                                  // Require if PostgreSQL is on another machine
     "MigrateOnStartup": false                             // the deploy script migrates
@@ -210,7 +210,7 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
   "DataProtection": { "KeysPath": "C:\\Server\\sivacomapi\\keys" },
 
   "Logging": {
-    "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log", "RetainedFileCountLimit": 31 }
+    "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log", "RetainedFileCountLimit": 31 }
   }
 
   // Otp, Worker and RateLimits are in the template with their defaults.
@@ -221,7 +221,7 @@ Fill it in — every `REPLACE-ME` must go, or the deploy script refuses to run:
 (`jsonc` above only to show comments; the real file uses `"//"` keys for
 notes, as the template does.)
 
-**What SivaComm checks when it starts — and refuses to start if wrong:**
+**What SivaCom checks when it starts — and refuses to start if wrong:**
 database password present; master key present and not the development key;
 OTP values in range; and every application entry valid (code format, unique
 codes and key ids, secrets ≥ 32 characters, an enabled app has a live key,
@@ -235,25 +235,25 @@ icacls C:\Server\sivacomapi\appsettings.Production.json /inheritance:r /grant:r 
 
 ---
 
-## 6. Deploy SivaComm
+## 6. Deploy SivaCom
 
 Usually from a release zip (DEPLOYMENT_AZURE.md §2 and §5–6): build the
 zips on a development machine with `.\deploy\New-Release.ps1`, copy the API
-zip to the server, unzip it and run `.\Install-SivaComm.ps1`. On a server
-that has the source, the SDK and Node, `.\deploy\Deploy-SivaComm.ps1` does
+zip to the server, unzip it and run `.\Install-SivaCom.ps1`. On a server
+that has the source, the SDK and Node, `.\deploy\Deploy-SivaCom.ps1` does
 both in one go:
 
 ```powershell
-cd C:\src\SivaComm
-.\deploy\Deploy-SivaComm.ps1
+cd C:\src\SivaCom
+.\deploy\Deploy-SivaCom.ps1
 ```
 
 ```mermaid
 flowchart LR
-    R[New-Release.ps1<br/>publish API · build dashboard] --> A[Install-SivaComm.ps1:<br/>config present? no REPLACE-ME?]
+    R[New-Release.ps1<br/>publish API · build dashboard] --> A[Install-SivaCom.ps1:<br/>config present? no REPLACE-ME?]
     A --> D[stop service]
     D --> E[copy build in<br/>keep config]
-    E --> F[SivaComm.Api.exe --migrate]
+    E --> F[SivaCom.Api.exe --migrate]
     F --> G[create/update service<br/>auto start · restart on failure<br/>after PostgreSQL · Production]
     G --> H[start · wait for /health/ready]
 ```
@@ -270,7 +270,7 @@ The API does not serve the dashboard: the dashboard is static files on
 Cloudflare Pages (DEPLOYMENT_AZURE.md §8), calling the API cross-origin, and
 the API's `Cors:AllowedOrigins` must name the dashboard's origin.
 
-Then check the log (`C:\Server\sivacomapi\logs\sivacomm-YYYYMMDD.log`) for:
+Then check the log (`C:\Server\sivacomapi\logs\sivacom-YYYYMMDD.log`) for:
 
 ```
 [INF] Application from configuration — "hms-web: enabled, 1 live key(s), OTP template sivayaan_otp, welcome template hms_welcome"
@@ -282,11 +282,11 @@ is configured. Messages are NOT sent…"* — expected until step 2 is done.
 
 ---
 
-## 7. Make SivaComm reachable (HTTPS)
+## 7. Make SivaCom reachable (HTTPS)
 
 Meta must reach the webhook, and the dashboard's login cookie only works
 over HTTPS outside development. With the Cloudflare Tunnel HMS already uses,
-add a public hostname for SivaComm pointing at the `Urls` value:
+add a public hostname for SivaCom pointing at the `Urls` value:
 
 ```yaml
 # cloudflared config.yml — add above the catch-all rule
@@ -328,7 +328,7 @@ Meta for Developers → your app → WhatsApp → Configuration → Webhook:
 In HMS_WEB's `appsettings.Production.json` (beside its exe), add or edit:
 
 ```json
-"SivaComm": {
+"SivaCom": {
   "Enabled": true,
   "BaseUrl": "http://localhost:6073",
   "ClientId": "hms-web",
@@ -344,14 +344,14 @@ In HMS_WEB's `appsettings.Production.json` (beside its exe), add or edit:
 
 | Key | Must equal |
 |---|---|
-| `SivaComm:BaseUrl` | SivaComm's `Urls` if on the same machine, otherwise its public `https://` name |
-| `SivaComm:ClientId` | SivaComm `Applications[].Code` |
-| `SivaComm:KeyId` | SivaComm `Applications[].Keys[].KeyId` |
-| `SivaComm:Secret` | SivaComm `Applications[].Keys[].Secret` |
+| `SivaCom:BaseUrl` | SivaCom's `Urls` if on the same machine, otherwise its public `https://` name |
+| `SivaCom:ClientId` | SivaCom `Applications[].Code` |
+| `SivaCom:KeyId` | SivaCom `Applications[].Keys[].KeyId` |
+| `SivaCom:Secret` | SivaCom `Applications[].Keys[].Secret` |
 
-`SivaComm:Enabled: false` (or the section left out) keeps HMS_WEB on its
+`SivaCom:Enabled: false` (or the section left out) keeps HMS_WEB on its
 normal flow — sending its own codes through its own `WhatsApp` section — and
-nothing in HMS talks to SivaComm. `PasswordReset:Enabled: false` removes
+nothing in HMS talks to SivaCom. `PasswordReset:Enabled: false` removes
 self-service reset altogether.
 
 With `Enabled: true` and any of the other four missing, HMS_WEB refuses to
@@ -377,8 +377,8 @@ Then push the frontend branch Cloudflare Pages builds, as for any release —
 the new three-step reset page and the conditional *Forgot password?* link are
 in it.
 
-Order across the two services: **SivaComm first** (steps 3–8), then HMS_WEB.
-HMS_WEB with `SivaComm:Enabled: true` needs SivaComm answering; with `false`
+Order across the two services: **SivaCom first** (steps 3–8), then HMS_WEB.
+HMS_WEB with `SivaCom:Enabled: true` needs SivaCom answering; with `false`
 the order doesn't matter.
 
 ---
@@ -407,38 +407,38 @@ Every change below is: edit the file → restart the service (`Restart-Service S
 
 **Rotate HMS's signing key (no downtime)**
 
-1. SivaComm file — add a second key, keep the old:
+1. SivaCom file — add a second key, keep the old:
    ```json
    "Keys": [
      { "KeyId": "hms-2026-10", "Secret": "S4",     "Revoked": false },
      { "KeyId": "hms-2027-04", "Secret": "S4-new", "Revoked": false }
    ]
    ```
-   Restart SivaComm.
+   Restart SivaCom.
 2. HMS file — `KeyId: "hms-2027-04"`, `Secret: "S4-new"`. Restart HMS.
-3. SivaComm file — set the old key `"Revoked": true`. Restart SivaComm.
+3. SivaCom file — set the old key `"Revoked": true`. Restart SivaCom.
 
-**Key leaked** — set it `"Revoked": true` in SivaComm's file and restart:
+**Key leaked** — set it `"Revoked": true` in SivaCom's file and restart:
 HMS's resets fail safe (`TEMPORARY_ERROR`) until both files have a new key.
 
 **Change a template** (Meta approved a new one) — edit
 `Applications[].Templates.*.Name` / `Language` / `Parameters`; restart
-SivaComm. Queued messages already waiting keep the template they were
+SivaCom. Queued messages already waiting keep the template they were
 queued with.
 
 **Add an application** (Swarnakshi, TransTrack) — add an entry to
 `Applications` with its own `Code`, a new key (step 4) and its templates;
-restart SivaComm; give that application the same `ClientId` / `KeyId` /
+restart SivaCom; give that application the same `ClientId` / `KeyId` /
 `Secret`.
 
 **Pause an application** — `"Enabled": false`; restart. Every call it makes
 is refused until you set it back.
 
-**Turn SivaComm off for HMS** — HMS file `SivaComm:Enabled: false`; restart
+**Turn SivaCom off for HMS** — HMS file `SivaCom:Enabled: false`; restart
 HMS. It goes back to its normal flow; resets that were mid-way are closed and
 the person starts again.
 
-**New Meta token** — `WhatsApp:AccessToken`; restart SivaComm.
+**New Meta token** — `WhatsApp:AccessToken`; restart SivaCom.
 
 **Never change** `Security:MasterKey` on a running system — it would make
 stored secrets unreadable. If it must change, it's a planned migration, not
@@ -453,20 +453,20 @@ write the same change into the file.
 
 ## 13. Upgrading and rolling back
 
-**Upgrade:** pull the new code, run `.\deploy\Deploy-SivaComm.ps1` again. It
+**Upgrade:** pull the new code, run `.\deploy\Deploy-SivaCom.ps1` again. It
 keeps `appsettings.Production.json`, `logs\` and `keys\`, migrates, and
 restarts. Take a database backup first if the release notes mention a
 migration:
 
 ```powershell
-& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U sivacomm -Fc -f "D:\backups\sivacomm-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacomm
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U sivacomm -Fc -f "D:\backups\sivacom-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacom
 ```
 
 **Roll back:** check out the previous version and run the deploy script
 again. If that version's database is older than the current one, restore the
-backup taken before the upgrade (`pg_restore -c -d sivacomm …`) first.
+backup taken before the upgrade (`pg_restore -c -d sivacom …`) first.
 
-**Roll back HMS's use of SivaComm only:** `SivaComm:Enabled: false` in HMS's
+**Roll back HMS's use of SivaCom only:** `SivaCom:Enabled: false` in HMS's
 file and restart HMS — immediate, no deploy.
 
 ---
@@ -478,12 +478,12 @@ Same files, development names:
 | | |
 |---|---|
 | Role | `CREATE ROLE sivacomm LOGIN CREATEDB PASSWORD '…';` (CREATEDB for the tests) |
-| Config | `backend/src/SivaComm.Api/appsettings.Local.json` (git-ignored) — `Database:Password`, `Admin`, optionally an `Applications` entry |
+| Config | `backend/src/SivaCom.Api/appsettings.Local.json` (git-ignored) — `Database:Password`, `Admin`, optionally an `Applications` entry |
 | Master key | the public development key in `appsettings.Development.json` — refused outside Development |
-| Database | `sivacomm_dev`, created and migrated on start |
-| Run | `cd backend; dotnet run --project src/SivaComm.Api` → http://localhost:5290 |
+| Database | `sivacom_dev`, created and migrated on start |
+| Run | `cd backend; dotnet run --project src/SivaCom.Api` → http://localhost:5290 |
 | Dashboard dev server | `cd dashboard; npm install; npm run dev` → http://localhost:5291 |
-| Tests | `$env:SIVACOMM_TEST_PG = "Host=localhost;Username=sivacomm;Password=…"; dotnet test backend` |
+| Tests | `$env:SIVACOM_TEST_PG = "Host=localhost;Username=sivacomm;Password=…"; dotnet test backend` |
 
 Without a `WhatsApp` section in Development, each OTP is printed in the
 console/log — that's how a code is read on a laptop.
@@ -492,7 +492,7 @@ console/log — that's how a code is read on a laptop.
 
 ## Appendix: every value and where it goes
 
-| Value | SivaComm `appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Meta |
+| Value | SivaCom `appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Meta |
 |---|---|---|---|
 | D1 database password | `Database:Password` | — | — |
 | S1 master key | `Security:MasterKey` | — | — |
@@ -503,9 +503,9 @@ console/log — that's how a code is read on a laptop.
 | S3 webhook verify token | `WhatsApp:WebhookVerifyToken` | — | Webhook setup |
 | M4 / M6 OTP template + language | `Applications[].Templates.PasswordResetOtp` | — | Templates |
 | M5 / M6 welcome template + language | `Applications[].Templates.Welcome` (+ `Parameters`) | — | Templates |
-| application code | `Applications[].Code` | `SivaComm:ClientId` | — |
-| K1 key id | `Applications[].Keys[].KeyId` | `SivaComm:KeyId` | — |
-| S4 signing secret | `Applications[].Keys[].Secret` | `SivaComm:Secret` | — |
-| SivaComm address | `Urls` | `SivaComm:BaseUrl` | webhook URL (public name) |
-| switch | — | `SivaComm:Enabled` | — |
+| application code | `Applications[].Code` | `SivaCom:ClientId` | — |
+| K1 key id | `Applications[].Keys[].KeyId` | `SivaCom:KeyId` | — |
+| S4 signing secret | `Applications[].Keys[].Secret` | `SivaCom:Secret` | — |
+| SivaCom address | `Urls` | `SivaCom:BaseUrl` | webhook URL (public name) |
+| switch | — | `SivaCom:Enabled` | — |
 | reset on/off | — | `PasswordReset:Enabled` | — |

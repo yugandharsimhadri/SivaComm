@@ -19,8 +19,8 @@ function App() {
       .catch(() => setUser(null));
 
     const signedOut = () => setUser(null);
-    window.addEventListener('sivacomm:signed-out', signedOut);
-    return () => window.removeEventListener('sivacomm:signed-out', signedOut);
+    window.addEventListener('sivacom:signed-out', signedOut);
+    return () => window.removeEventListener('sivacom:signed-out', signedOut);
   }, []);
 
   if (user === undefined) return null;
@@ -34,7 +34,7 @@ function App() {
   return (
     <div className="shell">
       <header>
-        <strong>SivaComm</strong>
+        <strong>SivaCom</strong>
         <nav>
           {(['overview', 'messages', 'applications'] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>

@@ -1,4 +1,4 @@
-# Deploying SivaComm: API on the Azure VM, dashboard on Cloudflare
+# Deploying SivaCom: API on the Azure VM, dashboard on Cloudflare
 
 Step by step, from two zip files to a working service. Every setting is in a
 config file; nothing is typed into the application.
@@ -8,7 +8,7 @@ config file; nothing is typed into the application.
 | **Dashboard** | `https://sivacom.sivayaantechnologies.com` | Cloudflare Pages (static files) |
 | **API, public** | `https://sivacomapi.sivayaantechnologies.com` | Cloudflare Tunnel → the VM |
 | **API, on the VM** | `http://localhost:6073` | Windows service `SivaComApi`, folder `C:\Server\sivacomapi` |
-| **Database** | `localhost:5432`, database `sivacomm`, role `sivacomm` | PostgreSQL on the VM |
+| **Database** | `localhost:5432`, database `sivacom`, role `sivacomm` | PostgreSQL on the VM |
 
 ```
  Operator browser ──https──> sivacom.sivayaantechnologies.com        (Cloudflare Pages: dashboard files)
@@ -33,9 +33,10 @@ config file; nothing is typed into the application.
 - [7. Publish the API through the tunnel](#7-publish-the-api-through-the-tunnel)
 - [8. Dashboard on Cloudflare Pages](#8-dashboard-on-cloudflare-pages)
 - [9. Meta webhook](#9-meta-webhook)
-- [10. Point HMS_WEB at SivaComm](#10-point-hms_web-at-sivacomm)
+- [10. Point HMS_WEB at SivaCom](#10-point-hms_web-at-sivacom)
 - [11. Check it end to end](#11-check-it-end-to-end)
 - [12. Releasing a new version](#12-releasing-a-new-version)
+  - [12a. Upgrading from a release still named "SivaComm"](#12a-upgrading-from-a-release-still-named-sivacomm-once)
 - [13. When something is wrong](#13-when-something-is-wrong)
 - [Appendix: every value and where it goes](#appendix-every-value-and-where-it-goes)
 
@@ -47,8 +48,8 @@ config file; nothing is typed into the application.
 |---|---|
 | The Azure VM (Windows Server), RDP as an administrator | the same VM as HMS_WEB is fine |
 | Cloudflare account with the `sivayaantechnologies.com` zone | where `hoapi`/`healthone` already live |
-| A development machine with .NET 10 SDK, Node 20+, git and the SivaComm repo | builds the zips |
-| Meta values (WHATSAPP_SETUP.md): phone number id, permanent token, app secret, approved template names | optional to start — without them SivaComm runs but sends nothing |
+| A development machine with .NET 10 SDK, Node 20+, git and the SivaCom repo | builds the zips |
+| Meta values (WHATSAPP_SETUP.md): phone number id, permanent token, app secret, approved template names | optional to start — without them SivaCom runs but sends nothing |
 
 Nothing in this guide opens an Azure inbound port: the tunnel connects
 outward from the VM, exactly as for HMS_WEB.
@@ -58,7 +59,7 @@ outward from the VM, exactly as for HMS_WEB.
 ## 2. Build the two zips (development machine)
 
 ```powershell
-cd C:\src\SivaComm
+cd C:\src\SivaCom
 git pull
 .\deploy\New-Release.ps1
 ```
@@ -66,15 +67,15 @@ git pull
 It ends with:
 
 ```
-==> API zip       : C:\src\SivaComm\artifacts\SivaComm-api-20261025-878a350.zip (… MB)
-==> Dashboard zip : C:\src\SivaComm\artifacts\SivaComm-dashboard-20261025-878a350.zip (… KB)
+==> API zip       : C:\src\SivaCom\artifacts\SivaCom-api-20261025-878a350.zip (… MB)
+==> Dashboard zip : C:\src\SivaCom\artifacts\SivaCom-dashboard-20261025-878a350.zip (… KB)
 ==> Dashboard calls: https://sivacomapi.sivayaantechnologies.com
 ```
 
 | Zip | Goes to | Contains |
 |---|---|---|
-| `SivaComm-api-….zip` | the Azure VM | `api\` (the program), `Install-SivaComm.ps1`, `sql\` (database scripts), `appsettings.Production.json.template`, `cloudflared\config.yml.template`, this guide, `VERSION.txt` |
-| `SivaComm-dashboard-….zip` | Cloudflare Pages | `index.html`, `assets\`, `_headers` |
+| `SivaCom-api-….zip` | the Azure VM | `api\` (the program), `Install-SivaCom.ps1`, `sql\` (database scripts), `appsettings.Production.json.template`, `cloudflared\config.yml.template`, this guide, `VERSION.txt` |
+| `SivaCom-dashboard-….zip` | Cloudflare Pages | `index.html`, `assets\`, `_headers` |
 
 The dashboard's API address is baked in at build time from
 `dashboard\.env.production` (`VITE_API_URL=https://sivacomapi.sivayaantechnologies.com`).
@@ -87,7 +88,7 @@ name ending in `-dirty` means it was built from uncommitted changes.
 
 RDP in, open **PowerShell as Administrator**.
 
-**ASP.NET Core 10 runtime** (not the SDK; SivaComm runs as a Windows service,
+**ASP.NET Core 10 runtime** (not the SDK; SivaCom runs as a Windows service,
 so the IIS Hosting Bundle is not required — though it includes this runtime
 if HMS already installed it):
 
@@ -136,9 +137,9 @@ netsh interface ipv4 show excludedportrange protocol=tcp      # 6073 must not be
 Get-NetTCPConnection -LocalPort 6073 -State Listen -EA SilentlyContinue   # must print nothing (yet)
 ```
 
-`Install-SivaComm.ps1` runs the same two checks and stops with the reason if
+`Install-SivaCom.ps1` runs the same two checks and stops with the reason if
 either fails. If 6073 is taken, pick another port, put it in `Urls`, and use
-it in step 7's tunnel route and in HMS_WEB's `SivaComm:BaseUrl`.
+it in step 7's tunnel route and in HMS_WEB's `SivaCom:BaseUrl`.
 
 **No IIS site for SivaCom.** SivaCom runs as the Windows service
 `SivaComApi`, never under IIS. An IIS site bound to its port (an earlier
@@ -154,12 +155,12 @@ Get-WebBinding | ? bindingInformation -match ':6073:'     # must print nothing; 
 
 ## 4. Copy the API zip and create the database (once)
 
-**Copy** `SivaComm-api-….zip` to the VM (RDP clipboard / drive redirection,
+**Copy** `SivaCom-api-….zip` to the VM (RDP clipboard / drive redirection,
 or a storage blob) and unzip it:
 
 ```powershell
 $rel = "C:\Deployments\sivacom\release-$(Get-Date -Format yyyyMMdd)"
-Expand-Archive C:\Users\<you>\Downloads\SivaComm-api-*.zip -DestinationPath $rel -Force
+Expand-Archive C:\Users\<you>\Downloads\SivaCom-api-*.zip -DestinationPath $rel -Force
 cd $rel
 Get-Content .\VERSION.txt
 ```
@@ -169,7 +170,7 @@ own migrations:
 
 | Script | Does | Run as |
 |---|---|---|
-| `sql\01-create-database.sql` | role `sivacomm` (with its password), database `sivacomm` owned by it, schema `comm`, privileges; stops other roles connecting | `postgres` |
+| `sql\01-create-database.sql` | role `sivacomm` (with its password), database `sivacom` owned by it, schema `comm`, privileges; stops other roles connecting | `postgres` |
 | `sql\full-schema.sql` | all of `01-create-database.sql`, then every table, index and constraint — a ready database in one run | `postgres` |
 | `sql\migrate.sql` | tables only, for an existing database; idempotent | `sivacomm` |
 
@@ -192,7 +193,7 @@ $psql = "C:\Program Files\PostgreSQL\18\bin\psql.exe"
 ```
 
 The database is empty afterwards; step 6's installer creates the tables
-(`SivaComm.Api.exe --migrate`).
+(`SivaCom.Api.exe --migrate`).
 
 **B — database and tables now, for a DBA who wants to see the SQL run:**
 
@@ -207,7 +208,7 @@ and only reports *"Already current."*
 Either way, without `-v app_password=…` the script stops with
 *"app_password is required"* and changes nothing. The role never gets
 `CREATEDB`. Optional variables: `-v app_user=…` and `-v db_name=…` (defaults
-`sivacomm`/`sivacomm`).
+`sivacomm`/`sivacom`).
 
 **Azure Database for PostgreSQL** instead of PostgreSQL on the VM? Run the
 same script against it as its admin user (`-h <server>.postgres.database.azure.com
@@ -225,7 +226,7 @@ applies them. A DBA who prefers to apply them by hand runs the new release's
 In the same folder:
 
 ```powershell
-.\Install-SivaComm.ps1
+.\Install-SivaCom.ps1
 ```
 
 On the first run the installer copies the template to
@@ -275,7 +276,7 @@ Change these values (everything else can stay as the template has it):
 | `Applications[0].Templates.PasswordResetOtp.Name` / `Language` | approved Authentication template, e.g. `sivayaan_otp` / `en` |
 | `Applications[0].Templates.Welcome.Name` / `Language` / `Parameters` | approved Utility template, e.g. `hms_welcome` / `en` / `2` |
 | `DataProtection:KeysPath` | `C:\\Server\\sivacomapi\\keys` *(already set)* |
-| `Logging:File:PathFormat` | `C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log` *(already set)* |
+| `Logging:File:PathFormat` | `C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log` *(already set)* |
 
 In JSON, every backslash in a path is written twice (`C:\\Server\\sivacomapi\\keys`).
 
@@ -292,7 +293,7 @@ icacls C:\Server\sivacomapi\appsettings.Production.json /inheritance:r /grant:r 
 Same folder, same window:
 
 ```powershell
-.\Install-SivaComm.ps1
+.\Install-SivaCom.ps1
 ```
 
 ```
@@ -411,11 +412,11 @@ tunnel whose connector runs **on the same VM as SivaComApi**, with Service URL
 
 ```powershell
 cloudflared tunnel login                          # browser opens; choose sivayaantechnologies.com
-cloudflared tunnel create sivacomm-api            # prints the tunnel id, writes <id>.json
+cloudflared tunnel create sivacom-api            # prints the tunnel id, writes <id>.json
 Copy-Item "$env:USERPROFILE\.cloudflared\<id>.json" C:\Windows\System32\config\systemprofile\.cloudflared\
 Copy-Item .\cloudflared\config.yml.template C:\Windows\System32\config\systemprofile\.cloudflared\config.yml
 notepad C:\Windows\System32\config\systemprofile\.cloudflared\config.yml   # put <id> in both places
-cloudflared tunnel route dns sivacomm-api sivacomapi.sivayaantechnologies.com
+cloudflared tunnel route dns sivacom-api sivacomapi.sivayaantechnologies.com
 cloudflared service install
 Start-Service cloudflared
 ```
@@ -453,12 +454,12 @@ on another tunnel.
    `sivacom.sivayaantechnologies.com` → **Activate domain** (the zone is
    already on Cloudflare, so the DNS record is added for you).
 5. Wait until the domain shows **Active**, then open
-   `https://sivacom.sivayaantechnologies.com` — the SivaComm sign-in page.
+   `https://sivacom.sivayaantechnologies.com` — the SivaCom sign-in page.
 
 Command-line alternative (development machine, after `npx wrangler login`):
 
 ```powershell
-cd C:\src\SivaComm\dashboard
+cd C:\src\SivaCom\dashboard
 npx wrangler pages deploy dist --project-name sivacom-dashboard --branch main
 ```
 
@@ -488,13 +489,13 @@ both places). Skip this step until the `WhatsApp` values are filled in.
 
 ---
 
-## 10. Point HMS_WEB at SivaComm
+## 10. Point HMS_WEB at SivaCom
 
 In HMS_WEB's `appsettings.Production.json` (beside its exe or in its IIS site
 folder):
 
 ```json
-"SivaComm": {
+"SivaCom": {
   "Enabled": true,
   "BaseUrl": "http://localhost:6073",
   "ClientId": "hms-web",
@@ -507,8 +508,8 @@ folder):
 | Key | Value |
 |---|---|
 | `BaseUrl` | `http://localhost:6073` when HMS_WEB's API runs on this VM; `https://sivacomapi.sivayaantechnologies.com` when it runs elsewhere |
-| `ClientId` | `hms-web` — SivaComm `Applications[0].Code` |
-| `KeyId` / `Secret` | **K1** / **S4** — exactly as in SivaComm's file |
+| `ClientId` | `hms-web` — SivaCom `Applications[0].Code` |
+| `KeyId` / `Secret` | **K1** / **S4** — exactly as in SivaCom's file |
 
 Deploy HMS_WEB's `feature/sivacomm-otp` build the usual way (its
 `DEPLOY_IIS.md` / `RELEASE_POSTGRESQL.md`): migrate first — it adds the
@@ -516,7 +517,7 @@ Deploy HMS_WEB's `feature/sivacomm-otp` build the usual way (its
 frontend so Cloudflare Pages rebuilds `healthone.sivayaantechnologies.com`
 with the three-step reset page.
 
-`"Enabled": false` (or no `SivaComm` section) keeps HMS_WEB on its normal
+`"Enabled": false` (or no `SivaCom` section) keeps HMS_WEB on its normal
 flow; switching back and forth is an edit and a restart.
 
 ---
@@ -539,10 +540,10 @@ flow; switching back and forth is an edit and a restart.
 **API** — build new zips (step 2), copy the API zip to the VM, then:
 
 ```powershell
-& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U sivacomm -Fc -f "C:\Server\sivacomapi-backups\sivacomm-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacomm
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U sivacomm -Fc -f "C:\Server\sivacomapi-backups\sivacom-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacom
 $rel = "C:\Deployments\sivacom\release-$(Get-Date -Format yyyyMMdd-HHmm)"
-Expand-Archive C:\Users\<you>\Downloads\SivaComm-api-*.zip -DestinationPath $rel -Force
-cd $rel; .\Install-SivaComm.ps1
+Expand-Archive C:\Users\<you>\Downloads\SivaCom-api-*.zip -DestinationPath $rel -Force
+cd $rel; .\Install-SivaCom.ps1
 ```
 
 The installer keeps `appsettings.Production.json`, `logs` and `keys`, applies
@@ -552,15 +553,114 @@ any new migration, and restarts the service.
 drag in the new dashboard zip (or `npx wrangler pages deploy dist …`). The
 custom domain switches to it as soon as it finishes.
 
-**Roll back** — API: run `Install-SivaComm.ps1` from the previous
+**Roll back** — API: run `Install-SivaCom.ps1` from the previous
 `C:\Deployments\sivacom\release-…` folder (restore the dump first if the newer release
 migrated the database). Dashboard: Cloudflare → Deployments → the previous
 one → **Rollback to this deployment**. HMS only: set its
-`SivaComm:Enabled` to `false` and restart HMS — immediate.
+`SivaCom:Enabled` to `false` and restart HMS — immediate.
 
 **Config-only changes** (rotate a key, new template, add an application,
 Meta token): edit `C:\Server\sivacomapi\appsettings.Production.json`, then
 `Restart-Service SivaComApi`. Recipes: DEPLOYMENT.md §12.
+
+### 12a. Upgrading from a release still named "SivaComm" (once)
+
+The product is now **SivaCom** everywhere. Do this once, on the first upgrade
+from a release whose zip was called `SivaComm-api-…` (its program was
+`SivaComm.Api.exe`).
+
+| Changes | Stays the same |
+|---|---|
+| Program `SivaCom.Api.exe` (the installer swaps it and deletes the old `SivaComm.*` files) | Service `SivaComApi`, folder `C:\Server\sivacomapi`, port 6073 |
+| Database **name** `sivacom` (was `sivacomm`) | Database **user** `sivacomm` and its password |
+| Log files `sivacom-<date>.log` | Tunnel, routes, both URLs |
+| Request headers `X-SivaCom-…`: the API, the dashboard and HMS_WEB must all be the new build | `Security:MasterKey`, application keys, Meta token, templates |
+| Dashboard sign-in cookie: everyone signs in once more | Every message, challenge and setting in the database |
+| Test client `SivaComTest.exe` with `sivacom-test.json` | |
+
+The old dashboard cannot talk to the new API (it sends the old header name),
+so do steps 1–6 together, in one sitting. HMS_WEB is not affected while its
+`SivaCom:Enabled` is `false`.
+
+All on the VM, in an **elevated** PowerShell, from the unzipped new release
+folder (step 2's API zip, `SivaCom-api-<date>-<commit>.zip`).
+
+**1. Back up the database**
+
+```powershell
+$psql = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+New-Item -ItemType Directory -Force C:\Server\sivacomapi-backups | Out-Null
+& 'C:\Program Files\PostgreSQL\18\bin\pg_dump.exe' -U sivacomm -Fc -f "C:\Server\sivacomapi-backups\before-rename-$(Get-Date -Format yyyyMMdd-HHmm).dump" sivacomm
+```
+
+**2. Stop the service and rename the database** (as `postgres`; the rename
+needs every connection closed, and the stopped service was the only one)
+
+```powershell
+Stop-Service SivaComApi
+& $psql -U postgres -d postgres -c "ALTER DATABASE sivacomm RENAME TO sivacom;"
+& $psql -U postgres -d postgres -Atc "SELECT datname, pg_get_userbyid(datdba) FROM pg_database WHERE datname LIKE 'sivacom%';"
+```
+
+Expected: `sivacom|sivacomm`, the new name, still owned by the `sivacomm` user.
+Its privileges and schema `comm` come along unchanged.
+
+**3. Update the config file.** In `C:\Server\sivacomapi\appsettings.Production.json`
+set these three values (leave `"Username": "sivacomm"` as it is):
+
+```json
+"Database":       { "Name": "sivacom", ... },
+"DataProtection": { "KeysPath": "C:\\Server\\sivacomapi\\keys" },
+"Logging":        { "File": { "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log", ... } }
+```
+
+Check it (prints names and paths only, no secrets):
+
+```powershell
+$c = Get-Content C:\Server\sivacomapi\appsettings.Production.json -Raw | ConvertFrom-Json
+"Database : $($c.Database.Name) as $($c.Database.Username)"; "Keys     : $($c.DataProtection.KeysPath)"; "Logs     : $($c.Logging.File.PathFormat)"
+```
+
+Expected: `sivacom as sivacomm`, `C:\Server\sivacomapi\keys`,
+`C:\Server\sivacomapi\logs\sivacom-{Date}.log`.
+
+**4. Install the new release** (it replaces `SivaComm.Api.exe` with
+`SivaCom.Api.exe`, points the service at it, and deletes the old files)
+
+```powershell
+.\Install-SivaCom.ps1
+```
+
+It ends with `Ready: http://localhost:6073/health/ready`.
+
+**5. Deploy the new dashboard zip** to Cloudflare (step 8 / 12), straight
+away. Then open https://sivacom.sivayaantechnologies.com and sign in again.
+
+**6. Check**
+
+```powershell
+Get-CimInstance Win32_Service -Filter "Name='SivaComApi'" | Select-Object State, PathName
+Get-ChildItem C:\Server\sivacomapi -Filter 'SivaComm.*'      # nothing: old build gone
+Get-ChildItem C:\Server\sivacomapi\logs | Sort-Object LastWriteTime | Select-Object -Last 1   # sivacom-<today>.log
+```
+
+`PathName` must end in `SivaCom.Api.exe`. Then send a test with the new test
+client (docs/TESTING.md; build its zip with `deploy\New-Release.ps1`).
+
+**7. Tidy up**, once everything works:
+
+- `C:\SivaComm\` (old `logs` and `keys` folders, if your config used them):
+  copy any log you want to keep, then delete the folder.
+- The old test client folder and its `sivacomm-test.json`: delete it (it holds
+  a signing secret).
+- HMS_WEB, when it is next deployed with SivaCom switched on: its config
+  section is now **`"SivaCom"`** (it was `"SivaComm"`), with `BaseUrl`
+  `http://localhost:6073`.
+
+**Rolling back** before step 5: stop the service, `ALTER DATABASE sivacom
+RENAME TO sivacomm;`, put the three config values back, and run the old
+release's `Install-SivaComm.ps1`. (Delete `SivaCom.*` files from the folder
+afterwards; the old installer does not know them.)
 
 ---
 
@@ -583,16 +683,16 @@ Meta token): edit `C:\Server\sivacomapi\appsettings.Production.json`, then
 | Dashboard: sign-in returns but you are still on the sign-in page | using the `*.pages.dev` address, or the API not on HTTPS | use the custom domain; API through the tunnel |
 | Dashboard: everything fails with network errors | bundle built with the wrong `VITE_API_URL` | check `dashboard\.env.production`, rebuild, redeploy |
 | Meta webhook verify fails | step 7 not working, or S3 differs | fix and retry |
-| HMS resets all answer "try again in a moment" | HMS cannot reach SivaComm, or 401 (KeyId/Secret mismatch, clock) | HMS log: *SivaComm refused this application's signature*; compare K1/S4 in both files |
+| HMS resets all answer "try again in a moment" | HMS cannot reach SivaCom, or 401 (KeyId/Secret mismatch, clock) | HMS log: *SivaCom refused this application's signature*; compare K1/S4 in both files |
 
 ---
 
 ## Appendix: every value and where it goes
 
-| Value | SivaComm `C:\Server\sivacomapi\appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Elsewhere |
+| Value | SivaCom `C:\Server\sivacomapi\appsettings.Production.json` | HMS_WEB `appsettings.Production.json` | Elsewhere |
 |---|---|---|---|
-| API port | `Urls`: `http://localhost:6073` | `SivaComm:BaseUrl` (same VM) | tunnel `config.yml` service |
-| API public name | — | `SivaComm:BaseUrl` (other machine) | tunnel hostname; Meta callback URL; `dashboard\.env.production` |
+| API port | `Urls`: `http://localhost:6073` | `SivaCom:BaseUrl` (same VM) | tunnel `config.yml` service |
+| API public name | — | `SivaCom:BaseUrl` (other machine) | tunnel hostname; Meta callback URL; `dashboard\.env.production` |
 | Dashboard origin | `Cors:AllowedOrigins` | — | Pages custom domain |
 | D1 database password | `Database:Password` | — | PostgreSQL role |
 | S1 master key | `Security:MasterKey` | — | your password manager, off the VM |
@@ -600,6 +700,6 @@ Meta token): edit `C:\Server\sivacomapi\appsettings.Production.json`, then
 | S3 webhook verify token | `WhatsApp:WebhookVerifyToken` | — | Meta webhook setup |
 | Meta token / phone id / app secret | `WhatsApp:*` | — | Meta |
 | Template names, languages | `Applications[0].Templates` | — | Meta (approved) |
-| K1 key id | `Applications[0].Keys[0].KeyId` | `SivaComm:KeyId` | — |
-| S4 signing secret | `Applications[0].Keys[0].Secret` | `SivaComm:Secret` | — |
-| On/off for HMS | — | `SivaComm:Enabled` | — |
+| K1 key id | `Applications[0].Keys[0].KeyId` | `SivaCom:KeyId` | — |
+| S4 signing secret | `Applications[0].Keys[0].Secret` | `SivaCom:Secret` | — |
+| On/off for HMS | — | `SivaCom:Enabled` | — |

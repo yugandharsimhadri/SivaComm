@@ -1,4 +1,4 @@
-# Cloudflare Tunnel — publishes the SivaComm API at https://sivacomapi.sivayaantechnologies.com
+# Cloudflare Tunnel — publishes the SivaCom API at https://sivacomapi.sivayaantechnologies.com
 #
 # NEW tunnel: copy to C:\Windows\System32\config\systemprofile\.cloudflared\config.yml
 # (where the cloudflared Windows service looks, NOT %USERPROFILE%), fill in the

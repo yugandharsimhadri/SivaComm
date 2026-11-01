@@ -24,7 +24,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (user: string) => void }
   return (
     <div className="login">
       <form onSubmit={submit} className="card">
-        <h1>SivaComm</h1>
+        <h1>SivaCom</h1>
         <p className="muted">Messaging administration</p>
         <label>
           Username

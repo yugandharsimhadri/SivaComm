@@ -1,30 +1,30 @@
-# Configuring SivaComm to send messages
+# Configuring SivaCom to send messages
 
-Everything that has to be set, in order, for each kind of message SivaComm
+Everything that has to be set, in order, for each kind of message SivaCom
 sends. Configuration lives in **two config files** plus Meta:
 
 | Where | What | Who sets it |
 |---|---|---|
 | **Meta** (WhatsApp Manager) | the sending number, the access token, one approved template per message | once, by whoever owns the Meta Business account |
-| **SivaComm config file** (`C:\Server\sivacomapi\appsettings.Production.json`) | database, master key, Meta credentials, OTP rules, **and each application with its key and templates** | once per SivaComm install; edited for any change |
-| **The application's config file** (e.g. HMS_WEB `appsettings.Production.json`) | the switch, SivaComm's address, the same key | once per application install |
+| **SivaCom config file** (`C:\Server\sivacomapi\appsettings.Production.json`) | database, master key, Meta credentials, OTP rules, **and each application with its key and templates** | once per SivaCom install; edited for any change |
+| **The application's config file** (e.g. HMS_WEB `appsettings.Production.json`) | the switch, SivaCom's address, the same key | once per application install |
 
 Step-by-step deployment with commands: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
-## The messages SivaComm can send today
+## The messages SivaCom can send today
 
-| Message | `purpose` in SivaComm | Sent when | Meta template category | Parameters |
+| Message | `purpose` in SivaCom | Sent when | Meta template category | Parameters |
 |---|---|---|---|---|
-| **Password-reset code** | `PasswordResetOtp` | the application calls `POST /api/v1/otp/challenges` (user pressed *Forgot password*) | **Authentication** | exactly 1 — the code (SivaComm fills it in; the application never sees it) |
+| **Password-reset code** | `PasswordResetOtp` | the application calls `POST /api/v1/otp/challenges` (user pressed *Forgot password*) | **Authentication** | exactly 1 — the code (SivaCom fills it in; the application never sees it) |
 | **Welcome** | `Welcome` | the application calls `POST /api/v1/messages/welcome` (a new account was created) | **Utility** | as many as the template declares (0–10); the application sends them in order |
 
 Each application chooses **its own template** for each purpose, so HMS and
 Swarnakshi can word their welcome differently while sharing one WhatsApp
 number. A third kind of message (an appointment reminder, say) is not a
 configuration change today — it needs a new `MessagePurpose` value and an
-endpoint in SivaComm. See the last section.
+endpoint in SivaCom. See the last section.
 
 ---
 
@@ -67,14 +67,14 @@ words, numbered placeholders. HMS's:
 | Body | `Welcome to Sivayaan HMS, {{1}}. Your admin username is {{2}} — sign in with the password you chose. Password reset codes will come to this number.` |
 | Sample values | `{{1}}` Sunrise Clinic, `{{2}}` drsri@sunrise |
 
-The language code you register in SivaComm must match the approved one
+The language code you register in SivaCom must match the approved one
 exactly — `en` and `en_US` are different templates to Meta.
 
 ---
 
-## 2 · SivaComm server config
+## 2 · SivaCom server config
 
-`appsettings.Production.json` beside `SivaComm.Api.exe` in the install
+`appsettings.Production.json` beside `SivaCom.Api.exe` in the install
 folder (default `C:\Server\sivacomapi`), never committed. Start from
 `deploy/appsettings.Production.json.template`, which lists every key with
 notes. The essentials:
@@ -83,7 +83,7 @@ notes. The essentials:
 {
   "Database": {
     "Host": "localhost",
-    "Name": "sivacomm",
+    "Name": "sivacom",
     "Username": "sivacomm",
     "Password": "<database password>"
   },
@@ -164,7 +164,7 @@ stops at *Submitted* instead of showing *Delivered* / *Read*.
 
 ## 3 · Each application, its key and its templates — in the same file
 
-In SivaComm's config file, one `Applications` entry per consuming
+In SivaCom's config file, one `Applications` entry per consuming
 application. Applied at every start; the database follows the file.
 
 ```json
@@ -186,7 +186,7 @@ application. Applied at every start; the database follows the file.
 
 | Key | Rule |
 |---|---|
-| `Code` | 2–40 lower-case letters, digits, hyphens; equals the application's `SivaComm:ClientId` |
+| `Code` | 2–40 lower-case letters, digits, hyphens; equals the application's `SivaCom:ClientId` |
 | `Keys[].KeyId` / `Secret` | the **same** pair goes into the application's config file; secret ≥ 32 characters (generate as above) |
 | `Templates.PasswordResetOtp` | the Authentication template; always 1 parameter (the code) |
 | `Templates.Welcome.Parameters` | how many `{{n}}` the approved Utility template has; a welcome request with a different count is refused straight away rather than failing at Meta minutes later |
@@ -194,13 +194,13 @@ application. Applied at every start; the database follows the file.
 Repeat for each application (Swarnakshi, TransTrack) with its own `Code`,
 its own key and its own welcome template; they can share the OTP template.
 
-**Rotating a key:** add a second entry under `Keys` → restart SivaComm → put
+**Rotating a key:** add a second entry under `Keys` → restart SivaCom → put
 the new pair in the application's file and restart it → set the old key
-`"Revoked": true` → restart SivaComm. **Turning an application off:**
+`"Revoked": true` → restart SivaCom. **Turning an application off:**
 `"Enabled": false` — every call it makes is then refused.
 
 A mistake in this section (bad code, duplicate key id, short secret, no live
-key on an enabled application, missing template name) stops SivaComm at
+key on an enabled application, missing template name) stops SivaCom at
 start with every problem listed — not at the first message.
 
 The dashboard's Applications page can make the same changes in an emergency;
@@ -213,7 +213,7 @@ for an application in the file, **the file wins at the next restart**.
 In HMS_WEB's `appsettings.Production.json`:
 
 ```json
-"SivaComm": {
+"SivaCom": {
   "Enabled": true,
   "BaseUrl": "https://sivacomapi.sivayaantechnologies.com",
   "ClientId": "hms-web",
@@ -223,10 +223,10 @@ In HMS_WEB's `appsettings.Production.json`:
 }
 ```
 
-| `SivaComm:Enabled` | Password-reset code | Welcome message |
+| `SivaCom:Enabled` | Password-reset code | Welcome message |
 |---|---|---|
 | `false` (default) | normal flow — HMS_WEB makes and checks the code itself, sends via its own `WhatsApp` section or the log | sent by HMS_WEB itself |
-| `true` | **SivaComm** — template `PasswordResetOtp` | **SivaComm** — template `Welcome` |
+| `true` | **SivaCom** — template `PasswordResetOtp` | **SivaCom** — template `Welcome` |
 
 Restart HMS_WEB after changing it (and run its migrations once — they add
 `PasswordResetTransactions`). With `Enabled: true` and any of the other four
@@ -235,13 +235,13 @@ incomplete. Details: HMS_WEB `docs/PASSWORD_RESET.md`.
 
 `PasswordReset:Enabled` in the same file is a separate, optional kill switch:
 `false` removes self-service reset entirely (users ask their clinic admin),
-whatever `SivaComm:Enabled` says.
+whatever `SivaCom:Enabled` says.
 
 ---
 
 ## 5 · Checking it works
 
-1. SivaComm: `https://sivacomapi.sivayaantechnologies.com/health/ready` answers `ready`.
+1. SivaCom: `https://sivacomapi.sivayaantechnologies.com/health/ready` answers `ready`.
 2. Register a test clinic in HMS with your own number → a **Welcome** row
    appears in the dashboard's *Messages*.
 3. Press *Forgot password* → a **OTP** row appears. Its *Delivery* column
@@ -259,7 +259,7 @@ whatever `SivaComm:Enabled` says.
 ## Adding another kind of message later
 
 Today's two purposes are fixed in code (`MessagePurpose` in
-`SivaComm.Data/Entities.cs`). A new one — appointment reminder, bill ready,
+`SivaCom.Data/Entities.cs`). A new one — appointment reminder, bill ready,
 lab report ready — takes:
 
 1. a new `MessagePurpose` value and a migration (the column is a string, so

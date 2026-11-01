@@ -1,4 +1,4 @@
-# SivaComm API, v1
+# SivaCom API, v1
 
 For application **backends**. Nothing here may be called from a browser: the
 signing secret would have to ship in the bundle, and the browser would then
@@ -17,18 +17,18 @@ Every request carries:
 
 | Header | Value |
 |---|---|
-| `X-SivaComm-Client` | client id |
-| `X-SivaComm-Key-Id` | key id |
-| `X-SivaComm-Timestamp` | now, ISO 8601 UTC, e.g. `2026-10-24T10:00:00.000Z` |
-| `X-SivaComm-Nonce` | 16–64 random characters, never reused |
-| `X-SivaComm-Signature` | see below |
+| `X-SivaCom-Client` | client id |
+| `X-SivaCom-Key-Id` | key id |
+| `X-SivaCom-Timestamp` | now, ISO 8601 UTC, e.g. `2026-10-24T10:00:00.000Z` |
+| `X-SivaCom-Nonce` | 16–64 random characters, never reused |
+| `X-SivaCom-Signature` | see below |
 
 ```
 canonical = METHOD + "\n" + PATH_AND_QUERY + "\n" + TIMESTAMP + "\n" + NONCE + "\n" + lowercase_hex(SHA-256(body bytes))
 signature = base64( HMAC-SHA256( UTF-8(secret), UTF-8(canonical) ) )
 ```
 
-`PATH_AND_QUERY` is exactly what reaches SivaComm, e.g.
+`PATH_AND_QUERY` is exactly what reaches SivaCom, e.g.
 `/api/v1/otp/challenges/0192…/verify`. An empty body hashes the empty string.
 
 Refused with `401 UNAUTHORIZED` (one answer for every cause, so a caller
@@ -37,10 +37,10 @@ key, disabled application, timestamp more than 5 minutes off, wrong
 signature, a nonce already seen. The application identity used for
 everything afterwards comes **only** from this check — never from a body field.
 
-Reference implementation: HMS_WEB `SivayaanHMS.Data/Messaging/SivaCommClient.cs`.
+Reference implementation: HMS_WEB `SivayaanHMS.Data/Messaging/SivaComClient.cs`.
 
 Optional: `X-Correlation-Id` (8–64 of `[A-Za-z0-9_-]`) is echoed back and
-written into SivaComm's logs, so one id follows a request across both.
+written into SivaCom's logs, so one id follows a request across both.
 
 ---
 
@@ -184,7 +184,7 @@ and the outbox worker looping. Both anonymous, both bodiless on failure.
 ## Admin API (dashboard only)
 
 Cookie session from `POST /api/admin/auth/login`; every request must carry
-`X-SivaComm-Admin: 1`. Application keys do not work here and the admin
+`X-SivaCom-Admin: 1`. Application keys do not work here and the admin
 cookie does not work on `/api/v1`.
 
 `GET /api/admin/summary?from&to&applicationId` · `GET /api/admin/messages?applicationId&status&purpose&from&to&page&pageSize` ·

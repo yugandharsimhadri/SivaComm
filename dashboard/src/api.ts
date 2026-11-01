@@ -3,7 +3,7 @@
  * no token anywhere in browser storage, and no application credential ever
  * reaches this code.
  *
- * Every request carries X-SivaComm-Admin: the API refuses state-changing
+ * Every request carries X-SivaCom-Admin: the API refuses state-changing
  * admin calls without it, and a browser will not add a custom header to a
  * cross-site request, so another site cannot drive an operator's session.
  */
@@ -28,14 +28,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     credentials: 'include',
     headers: {
-      'X-SivaComm-Admin': '1',
+      'X-SivaCom-Admin': '1',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       ...init.headers,
     },
   });
 
   if (response.status === 401 && !path.endsWith('/login')) {
-    window.dispatchEvent(new Event('sivacomm:signed-out'));
+    window.dispatchEvent(new Event('sivacom:signed-out'));
   }
 
   if (!response.ok) {

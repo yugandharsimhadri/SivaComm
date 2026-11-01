@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>SivaComm flow diagrams</title>
+<title>SivaCom flow diagrams</title>
 <style>
   @page { size: A4; margin: 14mm 14mm 16mm; }
   html, body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: #2C2C2A; background: #fff; }
@@ -47,14 +47,14 @@
 
 <!-- ───────────────────────────── Cover ───────────────────────────── -->
 <section>
-  <h1>SivaComm — flow diagrams</h1>
+  <h1>SivaCom — flow diagrams</h1>
   <p class="sub">Sivayaan Communications: central WhatsApp OTP and messaging service, and its integration with HMS_WEB.<br>
   Companion to <b>docs/WORKFLOWS.md</b> (every request and response body) and <b>docs/DEPLOYMENT.md</b> (step-by-step commands).</p>
 
   <h2 style="margin-top:22px">Contents</h2>
   <ol class="toc">
-    <li>Password reset with SivaComm (<code>SivaComm:Enabled = true</code>)</li>
-    <li>Password reset, normal flow (<code>SivaComm:Enabled = false</code>, the default: unchanged HMS_WEB)</li>
+    <li>Password reset with SivaCom (<code>SivaCom:Enabled = true</code>)</li>
+    <li>Password reset, normal flow (<code>SivaCom:Enabled = false</code>, the default: unchanged HMS_WEB)</li>
     <li>Failure paths</li>
     <li>Welcome message and delivery receipts</li>
     <li>Deployment steps</li>
@@ -65,28 +65,28 @@
     <tr><td><svg width="60" height="12"><line x1="2" y1="6" x2="54" y2="6" class="arr" marker-end="url(#arrow)"/></svg></td><td>Request</td></tr>
     <tr><td><svg width="60" height="12"><line x1="2" y1="6" x2="54" y2="6" class="arr" stroke-dasharray="4 3" marker-end="url(#arrow)"/></svg></td><td>Response</td></tr>
     <tr><td><span class="sw" style="background:#EEEDFE;border-color:#534AB7"></span></td><td>HMS_WEB (owns the user, the reset transaction and the password)</td></tr>
-    <tr><td><span class="sw" style="background:#E1F5EE;border-color:#0F6E56"></span></td><td>SivaComm (generates, sends and verifies the code; tracks delivery)</td></tr>
+    <tr><td><span class="sw" style="background:#E1F5EE;border-color:#0F6E56"></span></td><td>SivaCom (generates, sends and verifies the code; tracks delivery)</td></tr>
     <tr><td><span class="sw" style="background:#F1EFE8;border-color:#5F5E5A"></span></td><td>Outside both: browser, Meta WhatsApp, or a neutral step</td></tr>
     <tr><td><span class="sw" style="background:#FAECE7;border-color:#993C1D"></span></td><td>Failure that ends the reset (start again)</td></tr>
   </table>
 
   <h2 style="margin-top:22px">Three rules the flows enforce</h2>
   <ol class="toc" style="line-height:1.6">
-    <li>The password goes from the browser to HMS_WEB and stops there. SivaComm never receives it.</li>
-    <li>The verification grant goes from SivaComm to HMS_WEB only. The browser never sees it.</li>
+    <li>The password goes from the browser to HMS_WEB and stops there. SivaCom never receives it.</li>
+    <li>The verification grant goes from SivaCom to HMS_WEB only. The browser never sees it.</li>
     <li>A timeout or outage anywhere is a retryable failure, never a success.</li>
   </ol>
-  <p class="foot">Generated 2026-10-25 from SivaComm commit e93ef60 and HMS_WEB commit 3855320.</p>
+  <p class="foot">Generated 2026-10-25 from SivaCom commit e93ef60 and HMS_WEB commit 3855320.</p>
 </section>
 
-<!-- ─────────────────────── 1. Reset with SivaComm ─────────────────────── -->
+<!-- ─────────────────────── 1. Reset with SivaCom ─────────────────────── -->
 <section>
-  <h2>1. Password reset with SivaComm</h2>
-  <p class="sub"><code>SivaComm:Enabled = true</code> in HMS_WEB's config file. Calls marked “signed” carry an HMAC signature made with the key id and secret held in both config files.</p>
+  <h2>1. Password reset with SivaCom</h2>
+  <p class="sub"><code>SivaCom:Enabled = true</code> in HMS_WEB's config file. Calls marked “signed” carry an HMAC signature made with the key id and secret held in both config files.</p>
 <svg class="d" viewBox="0 0 680 770" role="img">
 <g class="c-gray"><rect x="40" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="110" y="42" text-anchor="middle" dominant-baseline="central">Browser</text></g>
 <g class="c-purple"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">HMS_WEB</text></g>
-<g class="c-teal"><rect x="360" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="430" y="42" text-anchor="middle" dominant-baseline="central">SivaComm</text></g>
+<g class="c-teal"><rect x="360" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="430" y="42" text-anchor="middle" dominant-baseline="central">SivaCom</text></g>
 <g class="c-gray"><rect x="520" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="590" y="42" text-anchor="middle" dominant-baseline="central">Meta WhatsApp</text></g>
 <line class="leader" x1="110" y1="64" x2="110" y2="84"/><line class="leader" x1="110" y1="106" x2="110" y2="340"/><line class="leader" x1="110" y1="362" x2="110" y2="524"/><line class="leader" x1="110" y1="546" x2="110" y2="750"/>
 <line class="leader" x1="270" y1="64" x2="270" y2="84"/><line class="leader" x1="270" y1="106" x2="270" y2="340"/><line class="leader" x1="270" y1="362" x2="270" y2="524"/><line class="leader" x1="270" y1="546" x2="270" y2="668"/><line class="leader" x1="270" y1="696" x2="270" y2="750"/>
@@ -130,7 +130,7 @@
 <!-- ─────────────────────── 2. Normal flow ─────────────────────── -->
 <section>
   <h2>2. Password reset, normal flow</h2>
-  <p class="sub"><code>SivaComm:Enabled = false</code> — the default. HMS_WEB exactly as it was before SivaComm: the original page with the code and the new password on one screen, the original two requests, HMS_WEB's own WhatsApp settings. SivaComm is never called, and the three-step endpoints answer 404.</p>
+  <p class="sub"><code>SivaCom:Enabled = false</code> — the default. HMS_WEB exactly as it was before SivaCom: the original page with the code and the new password on one screen, the original two requests, HMS_WEB's own WhatsApp settings. SivaCom is never called, and the three-step endpoints answer 404.</p>
 <svg class="d" viewBox="0 0 680 500" role="img">
 <g class="c-gray"><rect x="40" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="110" y="42" text-anchor="middle" dominant-baseline="central">Browser</text></g>
 <g class="c-purple"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">HMS_WEB</text></g>
@@ -166,9 +166,9 @@
 <!-- ─────────────────────── 3. Failure paths ─────────────────────── -->
 <section>
   <h2>3. Failure paths</h2>
-  <p class="sub">What each of HMS_WEB's two calls to SivaComm can return, and what the browser does next. “Expired, locked” covers EXPIRED, ATTEMPTS_EXCEEDED, ALREADY_USED and CANCELLED. Resubmitting after a timeout is safe: the same idempotency key makes SivaComm answer CONSUMED again rather than treat it as a replay.</p>
+  <p class="sub">What each of HMS_WEB's two calls to SivaCom can return, and what the browser does next. “Expired, locked” covers EXPIRED, ATTEMPTS_EXCEEDED, ALREADY_USED and CANCELLED. Resubmitting after a timeout is safe: the same idempotency key makes SivaCom answer CONSUMED again rather than treat it as a replay.</p>
 <svg class="d" viewBox="0 0 680 490" role="img">
-<g><rect class="box" x="240" y="30" width="200" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="48" text-anchor="middle" dominant-baseline="central">Verify code</text><text class="ts" x="340" y="68" text-anchor="middle" dominant-baseline="central">HMS asks SivaComm</text></g>
+<g><rect class="box" x="240" y="30" width="200" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="48" text-anchor="middle" dominant-baseline="central">Verify code</text><text class="ts" x="340" y="68" text-anchor="middle" dominant-baseline="central">HMS asks SivaCom</text></g>
 <line class="arr" x1="340" y1="86" x2="115" y2="146" marker-end="url(#arrow)"/>
 <line class="arr" x1="340" y1="86" x2="265" y2="146" marker-end="url(#arrow)"/>
 <line class="arr" x1="340" y1="86" x2="415" y2="146" marker-end="url(#arrow)"/>
@@ -191,10 +191,10 @@
 <!-- ─────────────────────── 4. Welcome + receipts ─────────────────────── -->
 <section>
   <h2>4. Welcome message and delivery receipts</h2>
-  <p class="sub">HMS_WEB gets 202 QUEUED before anything is sent, so registration never waits on Meta. Reset codes use the same send path. Meta signs each receipt and SivaComm checks it first; a status never moves backwards.</p>
+  <p class="sub">HMS_WEB gets 202 QUEUED before anything is sent, so registration never waits on Meta. Reset codes use the same send path. Meta signs each receipt and SivaCom checks it first; a status never moves backwards.</p>
 <svg class="d" viewBox="0 0 680 560" role="img">
 <g class="c-purple"><rect x="40" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="110" y="42" text-anchor="middle" dominant-baseline="central">HMS_WEB</text></g>
-<g class="c-teal"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">SivaComm API</text></g>
+<g class="c-teal"><rect x="200" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="270" y="42" text-anchor="middle" dominant-baseline="central">SivaCom API</text></g>
 <g class="c-teal"><rect x="360" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="430" y="42" text-anchor="middle" dominant-baseline="central">Outbox worker</text></g>
 <g class="c-gray"><rect x="520" y="20" width="140" height="44" rx="8" stroke-width="0.5"/><text class="th" x="590" y="42" text-anchor="middle" dominant-baseline="central">Meta WhatsApp</text></g>
 <line class="leader" x1="110" y1="64" x2="110" y2="84"/><line class="leader" x1="110" y1="106" x2="110" y2="232"/><line class="leader" x1="110" y1="254" x2="110" y2="392"/><line class="leader" x1="110" y1="414" x2="110" y2="540"/>
@@ -226,24 +226,24 @@
 <!-- ─────────────────────── 5. Deployment ─────────────────────── -->
 <section>
   <h2>5. Deployment steps</h2>
-  <p class="sub">In order. Meta setup is first only because its approvals take days; steps 2–7 can run before it finishes (with the WhatsApp section empty, SivaComm runs and records each message as not sent). Commands for every step: docs/DEPLOYMENT.md.</p>
+  <p class="sub">In order. Meta setup is first only because its approvals take days; steps 2–7 can run before it finishes (with the WhatsApp section empty, SivaCom runs and records each message as not sent). Commands for every step: docs/DEPLOYMENT.md.</p>
 <svg class="d" viewBox="0 0 680 600" role="img">
 <g class="c-gray"><rect x="190" y="20" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="36" text-anchor="middle" dominant-baseline="central">Meta setup</text><text class="ts" x="340" y="54" text-anchor="middle" dominant-baseline="central">number, token, 2 templates</text></g>
 <line class="arr" x1="340" y1="68" x2="340" y2="84" marker-end="url(#arrow)"/>
-<g class="c-teal"><rect x="190" y="88" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="104" text-anchor="middle" dominant-baseline="central">SivaComm database</text><text class="ts" x="340" y="122" text-anchor="middle" dominant-baseline="central">sivacomm role and database</text></g>
+<g class="c-teal"><rect x="190" y="88" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="104" text-anchor="middle" dominant-baseline="central">SivaCom database</text><text class="ts" x="340" y="122" text-anchor="middle" dominant-baseline="central">sivacomm role, sivacom database</text></g>
 <line class="arr" x1="340" y1="136" x2="340" y2="152" marker-end="url(#arrow)"/>
 <g class="c-teal"><rect x="190" y="156" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="172" text-anchor="middle" dominant-baseline="central">Generate secrets</text><text class="ts" x="340" y="190" text-anchor="middle" dominant-baseline="central">master key, app secret</text></g>
 <line class="arr" x1="340" y1="204" x2="340" y2="220" marker-end="url(#arrow)"/>
-<g class="c-teal"><rect x="190" y="224" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="240" text-anchor="middle" dominant-baseline="central">SivaComm config file</text><text class="ts" x="340" y="258" text-anchor="middle" dominant-baseline="central">replace every REPLACE-ME</text></g>
+<g class="c-teal"><rect x="190" y="224" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="240" text-anchor="middle" dominant-baseline="central">SivaCom config file</text><text class="ts" x="340" y="258" text-anchor="middle" dominant-baseline="central">replace every REPLACE-ME</text></g>
 <line class="arr" x1="340" y1="272" x2="340" y2="288" marker-end="url(#arrow)"/>
-<g class="c-teal"><rect x="190" y="292" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="308" text-anchor="middle" dominant-baseline="central">Deploy-SivaComm.ps1</text><text class="ts" x="340" y="326" text-anchor="middle" dominant-baseline="central">build, migrate, Windows service</text></g>
+<g class="c-teal"><rect x="190" y="292" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="308" text-anchor="middle" dominant-baseline="central">Deploy-SivaCom.ps1</text><text class="ts" x="340" y="326" text-anchor="middle" dominant-baseline="central">build, migrate, Windows service</text></g>
 <line class="arr" x1="340" y1="340" x2="340" y2="356" marker-end="url(#arrow)"/>
 <g class="c-gray"><rect x="190" y="360" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="376" text-anchor="middle" dominant-baseline="central">Tunnel and webhook</text><text class="ts" x="340" y="394" text-anchor="middle" dominant-baseline="central">HTTPS name, Meta webhook</text></g>
 <line class="arr" x1="340" y1="408" x2="340" y2="424" marker-end="url(#arrow)"/>
-<g class="c-purple"><rect x="190" y="428" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="444" text-anchor="middle" dominant-baseline="central">HMS_WEB config and deploy</text><text class="ts" x="340" y="462" text-anchor="middle" dominant-baseline="central">SivaComm:Enabled true, same key</text></g>
+<g class="c-purple"><rect x="190" y="428" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="444" text-anchor="middle" dominant-baseline="central">HMS_WEB config and deploy</text><text class="ts" x="340" y="462" text-anchor="middle" dominant-baseline="central">SivaCom:Enabled true, same key</text></g>
 <line class="arr" x1="340" y1="476" x2="340" y2="492" marker-end="url(#arrow)"/>
 <g class="c-gray"><rect x="190" y="496" width="300" height="48" rx="8" stroke-width="0.5"/><text class="th" x="340" y="512" text-anchor="middle" dominant-baseline="central">Test end to end</text><text class="ts" x="340" y="530" text-anchor="middle" dominant-baseline="central">welcome, reset, dashboard</text></g>
-<text class="ts" x="340" y="576" text-anchor="middle">Teal: SivaComm server · Purple: HMS_WEB · Gray: outside both</text>
+<text class="ts" x="340" y="576" text-anchor="middle">Teal: SivaCom server · Purple: HMS_WEB · Gray: outside both</text>
 </svg>
 </section>
 

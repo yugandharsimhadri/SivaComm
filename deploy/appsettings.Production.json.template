@@ -1,6 +1,6 @@
 {
   "//": [
-    "SivaComm production configuration. EVERY setting lives in this one file.",
+    "SivaCom production configuration. EVERY setting lives in this one file.",
     "Copy it to the install folder (default C:\\Server\\sivacomapi) as appsettings.Production.json,",
     "replace every REPLACE-ME, and keep it out of source control - it holds the database password,",
     "the master key, the Meta token and each application's signing secret.",
@@ -11,7 +11,7 @@
     "Where the API listens, on this machine only. Plain http: Cloudflare provides https to visitors.",
     "6073 because 6071 is reserved by Windows on the production VM. The installer checks the port is neither",
     "reserved (netsh interface ipv4 show excludedportrange protocol=tcp) nor used by IIS or another program.",
-    "If you change it, change the tunnel route to http://127.0.0.1:<port> (http, NOT https) and HMS_WEB's SivaComm:BaseUrl."
+    "If you change it, change the tunnel route to http://127.0.0.1:<port> (http, NOT https) and HMS_WEB's SivaCom:BaseUrl."
   ],
   "Urls": "http://localhost:6073",
 
@@ -21,10 +21,10 @@
   },
 
   "Database": {
-    "//": "The sivacomm role and database (docs/DEPLOYMENT.md step 2). Use SslMode Require if PostgreSQL is on another machine.",
+    "//": "The sivacomm role and sivacom database (docs/DEPLOYMENT.md step 2). Use SslMode Require if PostgreSQL is on another machine.",
     "Host": "localhost",
     "Port": 5432,
-    "Name": "sivacomm",
+    "Name": "sivacom",
     "Username": "sivacomm",
     "Password": "REPLACE-ME",
     "SslMode": "Prefer",
@@ -73,7 +73,7 @@
     {
       "//": [
         "One entry per consuming application. Applied at every start: the database follows this file.",
-        "Code           - the application's SivaComm:ClientId.",
+        "Code           - the application's SivaCom:ClientId.",
         "Keys           - KeyId + Secret, the SAME two values go into that application's config file.",
         "                 Secret: 32+ random characters. Generate:",
         "                 $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)",
@@ -108,7 +108,7 @@
     },
     "File": {
       "//": "One file per day; {Date} is replaced. The service has no console, so this is where its logs go.",
-      "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacomm-{Date}.log",
+      "PathFormat": "C:\\Server\\sivacomapi\\logs\\sivacom-{Date}.log",
       "RetainedFileCountLimit": 31,
       "LogLevel": {
         "//": "The file logger applies only these levels, not Logging:LogLevel above. Without them every database command (the worker polls each second) is written to the file.",

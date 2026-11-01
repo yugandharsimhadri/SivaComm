@@ -7,9 +7,9 @@
     Runs on a development machine with the .NET 10 SDK and Node. Output in
     artifacts\ (git-ignored):
 
-      SivaComm-api-<date>-<commit>.zip         copy to the Azure VM, unzip, run Install-SivaComm.ps1
+      SivaCom-api-<date>-<commit>.zip         copy to the Azure VM, unzip, run Install-SivaCom.ps1
         api\                                   the published API (win-x64, framework-dependent)
-        Install-SivaComm.ps1
+        Install-SivaCom.ps1
         appsettings.Production.json.template
         cloudflared\config.yml.template
         sql\01-create-database.sql             role, database, schema, privileges
@@ -18,14 +18,17 @@
         DEPLOYMENT_AZURE.md
         VERSION.txt
 
-      SivaComm-dashboard-<date>-<commit>.zip   upload to Cloudflare Pages (sivacom.sivayaantechnologies.com)
+      SivaCom-dashboard-<date>-<commit>.zip   upload to Cloudflare Pages (sivacom.sivayaantechnologies.com)
         index.html, assets\, _headers          built with VITE_API_URL from dashboard\.env.production
+
+      SivaComTest-<date>-<commit>.zip         optional: test messaging from the server (docs/TESTING.md)
+        SivaComTest.exe, sivacom-test.json, README.txt
 
 .PARAMETER Out
     Folder to assemble into. Default artifacts\release.
 
 .PARAMETER NoZip
-    Leave the folders unzipped (Deploy-SivaComm.ps1 uses this).
+    Leave the folders unzipped (Deploy-SivaCom.ps1 uses this).
 
 .EXAMPLE
     .\deploy\New-Release.ps1
@@ -42,7 +45,7 @@ function Say($m) { Write-Host "==> $m" -ForegroundColor Cyan }
 function Die($m) { Write-Host "XX  $m" -ForegroundColor Red; exit 1 }
 
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$ApiProj = Join-Path $Repo 'backend\src\SivaComm.Api\SivaComm.Api.csproj'
+$ApiProj = Join-Path $Repo 'backend\src\SivaCom.Api\SivaCom.Api.csproj'
 $Dashboard = Join-Path $Repo 'dashboard'
 $Artifacts = Join-Path $Repo 'artifacts'
 if (-not $Out) { $Out = Join-Path $Artifacts 'release' }
@@ -57,8 +60,9 @@ $stamp = Get-Date -Format 'yyyyMMdd'
 
 $ApiOut = Join-Path $Out 'api-release'
 $DashOut = Join-Path $Out 'dashboard'
+$TestOut = Join-Path $Out 'testclient'
 if (Test-Path $Out) { Remove-Item $Out -Recurse -Force }
-New-Item -ItemType Directory -Force $ApiOut, $DashOut | Out-Null
+New-Item -ItemType Directory -Force $ApiOut, $DashOut, $TestOut | Out-Null
 
 # ---------------------------------------------------------------------- API
 
@@ -68,13 +72,13 @@ if ($LASTEXITCODE -ne 0) { Die 'dotnet publish failed.' }
 
 # The dashboard is on Cloudflare Pages; the API does not serve it.
 Remove-Item (Join-Path $ApiOut 'api\wwwroot') -Recurse -Force -ErrorAction SilentlyContinue
-# No web.config: SivaComm runs as a Windows service, never under IIS, and a
+# No web.config: SivaCom runs as a Windows service, never under IIS, and a
 # web.config in the folder is an invitation for IIS to claim it (and port 6073).
 Remove-Item (Join-Path $ApiOut 'api\web.config') -Force -ErrorAction SilentlyContinue
 # Development-only files have no business on a server.
 Remove-Item (Join-Path $ApiOut 'api\appsettings.Development.json'), (Join-Path $ApiOut 'api\appsettings.Local.json') -Force -ErrorAction SilentlyContinue
 
-Copy-Item (Join-Path $PSScriptRoot 'Install-SivaComm.ps1') $ApiOut
+Copy-Item (Join-Path $PSScriptRoot 'Install-SivaCom.ps1') $ApiOut
 Copy-Item (Join-Path $PSScriptRoot 'appsettings.Production.json.template') $ApiOut
 New-Item -ItemType Directory -Force (Join-Path $ApiOut 'cloudflared') | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'cloudflared\config.yml.template') (Join-Path $ApiOut 'cloudflared')
@@ -87,7 +91,7 @@ $SqlOut = Join-Path $ApiOut 'sql'
 New-Item -ItemType Directory -Force $SqlOut | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'sql\01-create-database.sql') $SqlOut
 & (Join-Path $PSScriptRoot 'New-SchemaScripts.ps1') -OutDir $SqlOut | Out-Host
-"SivaComm API`ncommit $commit`nbuilt $(Get-Date -Format 'yyyy-MM-dd HH:mm')" | Set-Content (Join-Path $ApiOut 'VERSION.txt') -Encoding ascii
+"SivaCom API`ncommit $commit`nbuilt $(Get-Date -Format 'yyyy-MM-dd HH:mm')" | Set-Content (Join-Path $ApiOut 'VERSION.txt') -Encoding ascii
 
 # ---------------------------------------------------------------- dashboard
 
@@ -105,6 +109,14 @@ $apiUrl = (Select-String -Path (Join-Path $Dashboard '.env.production') -Pattern
 if (-not (Select-String -Path (Join-Path $DashOut 'assets\*.js') -SimpleMatch $apiUrl -Quiet)) {
     Die "The dashboard bundle does not contain $apiUrl - VITE_API_URL was not applied."
 }
+
+# -------------------------------------------------------------- test client
+
+Say 'Publishing the test client (SivaComTest.exe)'
+$TestProj = Join-Path $Repo 'backend\tools\SivaCom.TestClient'
+& dotnet publish $TestProj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o $TestOut --nologo | Out-Host
+if ($LASTEXITCODE -ne 0) { Die 'Test client publish failed.' }
+Copy-Item (Join-Path $TestProj 'README.txt') $TestOut
 
 # --------------------------------------------------------------------- zips
 
@@ -125,13 +137,16 @@ function New-Zip([string] $dir, [string] $zip) {
     } finally { $archive.Dispose() }
 }
 
-$apiZip = Join-Path $Artifacts "SivaComm-api-$stamp-$commit.zip"
-$dashZip = Join-Path $Artifacts "SivaComm-dashboard-$stamp-$commit.zip"
-Remove-Item $apiZip, $dashZip -ErrorAction SilentlyContinue
+$apiZip = Join-Path $Artifacts "SivaCom-api-$stamp-$commit.zip"
+$dashZip = Join-Path $Artifacts "SivaCom-dashboard-$stamp-$commit.zip"
+$testZip = Join-Path $Artifacts "SivaComTest-$stamp-$commit.zip"
+Remove-Item $apiZip, $dashZip, $testZip -ErrorAction SilentlyContinue
 New-Zip $ApiOut $apiZip
 New-Zip $DashOut $dashZip
+New-Zip $TestOut $testZip
 
 Say "API zip       : $apiZip ($([math]::Round((Get-Item $apiZip).Length / 1MB, 1)) MB)"
 Say "Dashboard zip : $dashZip ($([math]::Round((Get-Item $dashZip).Length / 1KB)) KB)"
+Say "Test client   : $testZip ($([math]::Round((Get-Item $testZip).Length / 1KB)) KB)"
 Say "Dashboard calls: $apiUrl"
 if ($dirty) { Write-Host '!!  Built from uncommitted changes (the name says -dirty).' -ForegroundColor Yellow }

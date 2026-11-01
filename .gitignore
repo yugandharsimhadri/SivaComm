@@ -9,7 +9,7 @@ appsettings.Local.json
 appsettings.Production.json
 
 # Built dashboard (produced by `npm run build` in dashboard/).
-backend/src/SivaComm.Api/wwwroot/
+backend/src/SivaCom.Api/wwwroot/
 dashboard/dist/
 *.tsbuildinfo
 publish/

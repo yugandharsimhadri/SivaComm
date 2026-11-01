@@ -1,12 +1,12 @@
 # Workflows: every request and response
 
-What travels between the browser, HMS_WEB, SivaComm and Meta, one hop at a
+What travels between the browser, HMS_WEB, SivaCom and Meta, one hop at a
 time, with real bodies. The diagrams are Mermaid: they render on GitHub, in
 VS Code (with a Mermaid extension) and in most Markdown viewers.
 
 - [1. The big picture](#1-the-big-picture)
-- [2. Password reset with SivaComm (`SivaComm:Enabled = true`)](#2-password-reset-with-sivacomm)
-- [3. Password reset, normal flow (`SivaComm:Enabled = false`)](#3-password-reset-normal-flow)
+- [2. Password reset with SivaCom (`SivaCom:Enabled = true`)](#2-password-reset-with-sivacom)
+- [3. Password reset, normal flow (`SivaCom:Enabled = false`)](#3-password-reset-normal-flow)
 - [4. When it goes wrong](#4-when-it-goes-wrong)
 - [5. Welcome message](#5-welcome-message)
 - [6. Sending and delivery receipts](#6-sending-and-delivery-receipts)
@@ -26,10 +26,10 @@ flowchart LR
         H[HMS_WEB API]
         HD[(HMS database<br/>Users<br/>PasswordResetTransactions)]
     end
-    subgraph SivaComm server
-        S[SivaComm API]
+    subgraph SivaCom server
+        S[SivaCom API]
         W[Outbox worker]
-        SD[(SivaComm database<br/>challenges, grants,<br/>messages, events)]
+        SD[(SivaCom database<br/>challenges, grants,<br/>messages, events)]
     end
     M[Meta WhatsApp<br/>Cloud API]
     P((User's phone))
@@ -48,16 +48,16 @@ flowchart LR
 | Hop | Authenticated by | Carries |
 |---|---|---|
 | Browser → HMS_WEB | nothing (anonymous, like sign-in) | username, then an opaque `resetToken`, the code, the new password |
-| HMS_WEB → SivaComm | HMAC signature with the key from both config files | reset reference, user reference, phone, code — **never** a password |
-| SivaComm → Meta | `WhatsApp:AccessToken` | template name, language, phone, parameters |
-| Meta → SivaComm | `X-Hub-Signature-256` with `WhatsApp:AppSecret` | message id + status |
-| Operator → SivaComm | dashboard login cookie | reads counts and history; manages applications |
+| HMS_WEB → SivaCom | HMAC signature with the key from both config files | reset reference, user reference, phone, code — **never** a password |
+| SivaCom → Meta | `WhatsApp:AccessToken` | template name, language, phone, parameters |
+| Meta → SivaCom | `X-Hub-Signature-256` with `WhatsApp:AppSecret` | message id + status |
+| Operator → SivaCom | dashboard login cookie | reads counts and history; manages applications |
 
 ---
 
-## 2. Password reset with SivaComm
+## 2. Password reset with SivaCom
 
-`SivaComm:Enabled = true` in HMS_WEB's config file.
+`SivaCom:Enabled = true` in HMS_WEB's config file.
 
 ```mermaid
 sequenceDiagram
@@ -65,8 +65,8 @@ sequenceDiagram
     actor U as User (browser)
     participant H as HMS_WEB API
     participant HD as HMS DB
-    participant S as SivaComm API
-    participant SD as SivaComm DB
+    participant S as SivaCom API
+    participant SD as SivaCom DB
     participant W as Worker
     participant M as Meta
 
@@ -122,15 +122,15 @@ Content-Type: application/json
 { "username": "drsri@sunrise" }
 ```
 
-**② HMS_WEB → SivaComm** (headers explained in [§7](#7-how-a-signed-request-is-built-and-checked))
+**② HMS_WEB → SivaCom** (headers explained in [§7](#7-how-a-signed-request-is-built-and-checked))
 
 ```http
 POST /api/v1/otp/challenges
-X-SivaComm-Client: hms-web
-X-SivaComm-Key-Id: hms-2026-10
-X-SivaComm-Timestamp: 2026-10-25T09:00:00.0000000+00:00
-X-SivaComm-Nonce: 5b0e2c1f9a8d4e7b8c6a1d2e3f4a5b6c
-X-SivaComm-Signature: q4m1…base64…=
+X-SivaCom-Client: hms-web
+X-SivaCom-Key-Id: hms-2026-10
+X-SivaCom-Timestamp: 2026-10-25T09:00:00.0000000+00:00
+X-SivaCom-Nonce: 5b0e2c1f9a8d4e7b8c6a1d2e3f4a5b6c
+X-SivaCom-Signature: q4m1…base64…=
 Content-Type: application/json
 
 {
@@ -141,7 +141,7 @@ Content-Type: application/json
 }
 ```
 
-**③ SivaComm → HMS_WEB**
+**③ SivaCom → HMS_WEB**
 
 ```http
 HTTP/1.1 202 Accepted
@@ -209,14 +209,14 @@ POST /api/auth/verify-reset-code
 { "resetToken": "Jm3kQ9…", "code": "482913" }
 ```
 
-**② HMS_WEB → SivaComm** (signed)
+**② HMS_WEB → SivaCom** (signed)
 
 ```json
 POST /api/v1/otp/challenges/0192f1c4-b8e2-7a31-9c4d-5e6f7a8b9c0d/verify
 { "resetReference": "hms-0192f1c4a7b34e2c9d5e6f7a8b9c0d1e", "otp": "482913" }
 ```
 
-**③ SivaComm → HMS_WEB** — correct code:
+**③ SivaCom → HMS_WEB** — correct code:
 
 ```json
 HTTP/1.1 200 OK
@@ -263,7 +263,7 @@ POST /api/auth/reset-password
 
 The password stops here. Nothing below carries it.
 
-**② HMS_WEB → SivaComm** (signed; the reset reference doubles as idempotency key)
+**② HMS_WEB → SivaCom** (signed; the reset reference doubles as idempotency key)
 
 ```http
 POST /api/v1/grants/consume
@@ -272,7 +272,7 @@ Idempotency-Key: hms-0192f1c4a7b34e2c9d5e6f7a8b9c0d1e
 { "grant": "pV7x…", "resetReference": "hms-0192f1c4a7b34e2c9d5e6f7a8b9c0d1e" }
 ```
 
-**③ SivaComm → HMS_WEB**
+**③ SivaCom → HMS_WEB**
 
 ```json
 HTTP/1.1 200 OK
@@ -294,7 +294,7 @@ HTTP/1.1 200 OK
 { "status": "PASSWORD_CHANGED", "message": "Your password has been changed. Sign in with it now.", "remainingAttempts": null }
 ```
 
-**⑤ HMS_WEB → SivaComm** (reporting only, after the user already has their answer)
+**⑤ HMS_WEB → SivaCom** (reporting only, after the user already has their answer)
 
 ```json
 POST /api/v1/otp/challenges/0192f1c4-…/completion
@@ -306,9 +306,9 @@ POST /api/v1/otp/challenges/0192f1c4-…/completion
 
 ## 3. Password reset, normal flow
 
-`SivaComm:Enabled = false` (the default). HMS_WEB exactly as it was before
-SivaComm: the original page (code and new password on one screen), the
-original two requests, and SivaComm is never called.
+`SivaCom:Enabled = false` (the default). HMS_WEB exactly as it was before
+SivaCom: the original page (code and new password on one screen), the
+original two requests, and SivaCom is never called.
 
 ```mermaid
 sequenceDiagram
@@ -342,7 +342,7 @@ POST /api/auth/reset-password    { "username": "drsri@sunrise", "code": "482913"
 
 ```mermaid
 flowchart TD
-    V[Browser: verify code] --> HV{HMS calls SivaComm verify}
+    V[Browser: verify code] --> HV{HMS calls SivaCom verify}
     HV -->|200 VERIFIED| OK[Transaction Verified<br/>→ show new-password step]
     HV -->|422 INVALID_OTP| RETRY[400 INVALID_OTP<br/>N tries left — stay on code]
     HV -->|422 EXPIRED / ATTEMPTS_EXCEEDED<br/>409 ALREADY_USED / CANCELLED<br/>404 NOT_FOUND| DEAD[Transaction Closed<br/>400 — Start again]
@@ -351,13 +351,13 @@ flowchart TD
 
     P[Browser: set password] --> T{Transaction Verified<br/>and under 30 min?}
     T -->|no| NV[400 NOT_VERIFIED / EXPIRED]
-    T -->|yes| HC{HMS calls SivaComm consume}
+    T -->|yes| HC{HMS calls SivaCom consume}
     HC -->|200 CONSUMED| SAVE[save password<br/>200 PASSWORD_CHANGED]
     HC -->|timeout · 5xx| TEMP2[503 — still Verified;<br/>resubmit re-consumes with the same<br/>Idempotency-Key → CONSUMED, replayed]
     HC -->|409 ALREADY_USED / 422 EXPIRED| END[Closed — Start again]
 ```
 
-Example — SivaComm unreachable at verify:
+Example — SivaCom unreachable at verify:
 
 ```json
 HTTP/1.1 503 Service Unavailable
@@ -389,7 +389,7 @@ sequenceDiagram
     autonumber
     actor A as Clinic owner
     participant H as HMS_WEB API
-    participant S as SivaComm API
+    participant S as SivaCom API
     participant W as Worker
     participant M as Meta
 
@@ -414,7 +414,7 @@ POST /api/v1/messages/welcome
 `clientReference` is derived from the content, so a retried registration
 gets the same `messageId` back instead of a second message. The parameter
 count must match `Applications[].Templates.Welcome.Parameters` in
-SivaComm's config file (here 2), or the request is refused with
+SivaCom's config file (here 2), or the request is refused with
 `400 INVALID_REQUEST`.
 
 ---
@@ -424,10 +424,10 @@ SivaComm's config file (here 2), or the request is refused with
 ```mermaid
 sequenceDiagram
     autonumber
-    participant SD as SivaComm DB
+    participant SD as SivaCom DB
     participant W as Worker
     participant M as Meta
-    participant S as SivaComm API (webhook)
+    participant S as SivaCom API (webhook)
 
     loop every second, or at once when something is queued
         W->>SD: UPDATE … FOR UPDATE SKIP LOCKED (claim up to 10, lease 60 s)
@@ -469,13 +469,13 @@ X-Hub-Signature-256: sha256=9b1c…
 
 ```mermaid
 flowchart LR
-    subgraph "HMS_WEB (SivaCommClient)"
+    subgraph "HMS_WEB (SivaComClient)"
         A1[body bytes] --> A2[SHA-256 → hex]
         A3["METHOD \n PATH \n TIMESTAMP \n NONCE \n body-hash"] --> A4["HMAC-SHA256(Secret)"]
         A2 --> A3
-        A4 --> A5[X-SivaComm-Signature]
+        A4 --> A5[X-SivaCom-Signature]
     end
-    subgraph "SivaComm (RequestAuthenticator)"
+    subgraph "SivaCom (RequestAuthenticator)"
         B1{timestamp within ±5 min?} --> B2{client + key known,<br/>not revoked, app enabled?}
         B2 --> B3{recomputed signature<br/>equal? constant-time}
         B3 --> B4{nonce never seen?}
@@ -491,15 +491,15 @@ canonical = "POST" + "\n"
           + "5b0e2c1f9a8d4e7b8c6a1d2e3f4a5b6c" + "\n"
           + "e3b0c442…(hex SHA-256 of the body)"
 
-X-SivaComm-Signature = base64( HMAC-SHA256( Secret, canonical ) )
+X-SivaCom-Signature = base64( HMAC-SHA256( Secret, canonical ) )
 ```
 
 Any failed check → `401 { "success": false, "status": "UNAUTHORIZED" }`,
 one answer for every cause.
 
 **Where the Secret comes from:** the same value is written in two config
-files — SivaComm's `Applications[].Keys[].Secret` and HMS_WEB's
-`SivaComm:Secret` (with the matching `KeyId`).
+files — SivaCom's `Applications[].Keys[].Secret` and HMS_WEB's
+`SivaCom:Secret` (with the matching `KeyId`).
 
 ---
 
@@ -522,11 +522,11 @@ HMS_WEB at startup:
 
 ```mermaid
 flowchart TD
-    F[HMS appsettings files] --> E{SivaComm:Enabled?}
+    F[HMS appsettings files] --> E{SivaCom:Enabled?}
     E -->|false or absent| N[normal flow:<br/>LocalOtpGateway + own WhatsApp sender]
     E -->|true| K{BaseUrl, ClientId,<br/>KeyId, Secret all set?}
     K -->|no| X[refuse to start]
-    K -->|yes| S[SivaCommOtpGateway + SivaCommMessageSender]
+    K -->|yes| S[SivaComOtpGateway + SivaComMessageSender]
     F --> R{PasswordReset:Enabled?}
     R -->|false| D[Forgot password hidden;<br/>reset endpoints 403]
     R -->|true or absent| OK[Forgot password offered]
